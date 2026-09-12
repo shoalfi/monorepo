@@ -40,9 +40,13 @@ const INCIDENTS: Incident[] = [
       "caps set to 1 wei after",
     ],
     sources: [
-      { label: "the defiant", href: null },
-      { label: "cryptoticker", href: null },
-      { label: "techtimes", href: null },
+      {
+        label: "the defiant",
+        href: "https://thedefiant.io/news/hacks/moonwell-loses-8-7-million-to-mamo-price-manipulation-on-base",
+      },
+      { label: "cryptoticker", href: "https://cryptoticker.io/en/moonwell-mamo-oracle-exploit-base/" },
+      // The protocol's own post-mortem, which is where the $11,028,762 figure comes from.
+      { label: "moonwell post-mortem", href: "https://forum.moonwell.fi/t/post-mortem-mamo-market-incident-on-base/2208" },
     ],
   },
   {
@@ -76,9 +80,15 @@ const INCIDENTS: Incident[] = [
     headline: "TONIC pumped ~100x in 20 minutes. ~$75m borrowed. the chain was halted.",
     rows: ["pre-attack tvl ~$121.7m", "active loans ~$82.7m", "cronos halted and rolled back"],
     sources: [
-      { label: "source 1", href: null },
-      { label: "source 2", href: null },
-      { label: "source 3", href: null },
+      {
+        label: "coindesk",
+        href: "https://www.coindesk.com/tech/2026/08/31/cronos-halts-blockchain-after-usd75-million-lending-exploit-hits-lending-app-tectonic",
+      },
+      {
+        label: "the crypto times",
+        href: "https://www.cryptotimes.io/2026/08/31/cronos-halts-entire-blockchain-after-75m-tectonic-exploit-only-6m-escapes/",
+      },
+      { label: "cryptoticker", href: "https://cryptoticker.io/en/cronos-chain-halt-tectonic-exploit/" },
     ],
   },
 ]

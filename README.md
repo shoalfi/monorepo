@@ -217,8 +217,10 @@ curl -si "https://shoalfiserver-production.up.railway.app/tokens?limit=1" \
 ## Roadmap
 
 - **CapSteward** ([contracts/](contracts/README.md)): an on-chain cap that turns a
-  signed depth snapshot into `maxBorrowableUsd(token)`; compiled and tested,
-  not deployed.
+  depth snapshot into `maxBorrowableUsd(token)`. Deployed and verified on
+  Sepolia and reading a real snapshot, but on no mainnet, unaudited, and no
+  lending market consumes it. A production feed also needs signatures, a
+  multi-reporter median and a dispute window; `DepthOracle` has none of these.
 - Multi-chain (Base first) and Uniswap v4 pools; for MAMO-style tokens the label
   must say which venues are included, since MAMO's liquidity was split between
   Aerodrome Slipstream and Uniswap v4.
@@ -241,6 +243,11 @@ team; see their own READMEs for their own AI-tool disclosure, if any.
 ## Sources
 
 - The Defiant, Moonwell / MAMO: <https://thedefiant.io/news/hacks/moonwell-loses-8-7-million-to-mamo-price-manipulation-on-base>
+- Moonwell post-mortem (source of the $11,028,762 borrowed figure): <https://forum.moonwell.fi/t/post-mortem-mamo-market-incident-on-base/2208>
+- CryptoTicker, Moonwell / MAMO: <https://cryptoticker.io/en/moonwell-mamo-oracle-exploit-base/>
+- CoinDesk, Tectonic / Cronos halt: <https://www.coindesk.com/tech/2026/08/31/cronos-halts-blockchain-after-usd75-million-lending-exploit-hits-lending-app-tectonic>
+- CryptoTimes, Tectonic / 100x TONIC pump: <https://www.cryptotimes.io/2026/08/31/cronos-halts-entire-blockchain-after-75m-tectonic-exploit-only-6m-escapes/>
+- CryptoTicker, Tectonic / Cronos chain halt: <https://cryptoticker.io/en/cronos-chain-halt-tectonic-exploit/>
 - Crypto Briefing, Morpho / PT-reUSD trigger: <https://cryptobriefing.com/morpho-liquidations-pendle-reusd-cascade/>
 - CryptoTimes, Morpho TWAP exploit: <https://www.cryptotimes.io/2026/08/25/morphos-15-minute-twap-oracle-exploited-in-36-4m-liquidation-attack/>
 - CryptoDaily, Morpho market and pool figures: <https://cryptodaily.co.uk/2026/08/pt-reusd-morpho-liquidations-36m>
