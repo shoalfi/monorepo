@@ -174,8 +174,8 @@ including the scanner frontend — can show exactly how live the data is.
 
 | | |
 | --- | --- |
-| API | <https://shoalfiserver-production.up.railway.app> |
-| Health | <https://shoalfiserver-production.up.railway.app/health> |
+| API | <https://api.shoalfi.xyz> |
+| Health | <https://api.shoalfi.xyz/health> |
 | CapSteward (Sepolia) | [`0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E`](https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E) |
 | DepthOracle (Sepolia) | [`0x4655a18d3b3cF9644B90f633dbA030EAB12FF167`](https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167) |
 | Scanner | see `NEXT_PUBLIC_API_BASE` in [web/app/.env.example](web/app/.env.example) |
@@ -189,10 +189,10 @@ database and rebuilds it on the next refresh.
 Every `/tokens` response carries the block the numbers were computed at:
 
 ```sh
-curl -si "https://shoalfiserver-production.up.railway.app/tokens?limit=1" \
+curl -si "https://api.shoalfi.xyz/tokens?limit=1" \
   | grep -i '^x-shoalfi'
-# x-shoalfi-block: 25963542
-# x-shoalfi-refreshed-at: 2026-09-12T19:51:43.911Z
+# x-shoalfi-block: 25963732
+# x-shoalfi-refreshed-at: 2026-09-12T20:30:16.697Z
 ```
 
 ## Bounty eligibility

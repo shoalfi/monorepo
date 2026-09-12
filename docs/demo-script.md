@@ -30,7 +30,7 @@ Weave these into scenes 3 and 6 rather than reading them as a list.
 
 ```sh
 # 1. Data is fresh and non-empty
-curl -s https://shoalfiserver-production.up.railway.app/health \
+curl -s https://api.shoalfi.xyz/health \
   | jq -c '{scored:.lastRun.tokensScored, markets:.lastRun.marketCounts, block:.lastRun.uniswapBlock}'
 # want: scored > 100, both protocols present
 ```
@@ -230,6 +230,6 @@ cast call 0x7Ec8… 'maxBorrowableUsd(address)(uint256)' 0x2260…  # on-chain c
 | Dashboard | <https://app.shoalfi.xyz> |
 | Incidents | <https://app.shoalfi.xyz/incident> |
 | Landing | <https://shoalfi.xyz> |
-| API health | <https://shoalfiserver-production.up.railway.app/health> |
+| API health | <https://api.shoalfi.xyz/health> |
 | CapSteward (Sepolia) | <https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E> |
 | DepthOracle (Sepolia) | <https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167> |

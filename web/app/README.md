@@ -62,7 +62,7 @@ place of an unknown.
 ## Running it
 
 ```sh
-NEXT_PUBLIC_API_BASE=https://shoalfiserver-production.up.railway.app \
+NEXT_PUBLIC_API_BASE=https://api.shoalfi.xyz \
 NEXT_PUBLIC_USE_FIXTURES=false \
 bun run --cwd web/app dev
 ```
