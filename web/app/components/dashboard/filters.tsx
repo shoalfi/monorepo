@@ -2,42 +2,35 @@
 
 import { Search } from "lucide-react"
 
-import type { RiskLevel, Token } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import { deriveRisk } from "@/lib/api"
 import { prettySource } from "@/lib/format"
+import type { RiskLevel, TokenScore } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 export type RiskFilter = RiskLevel | "all"
 
 const RISK_FILTERS: RiskFilter[] = ["all", "red", "amber", "green", "unknown"]
 
-export function protocolsOf(tokens: Token[]): string[] {
+export function protocolsOf(tokens: TokenScore[]): string[] {
   const seen = new Set<string>()
-  for (const token of tokens) for (const market of token.markets) seen.add(market.protocol)
+  for (const token of tokens) for (const protocol of token.protocols) seen.add(protocol)
   return [...seen].sort()
 }
 
 export function applyFilters(
-  tokens: Token[],
+  tokens: TokenScore[],
   { query, risk, protocol }: { query: string; risk: RiskFilter; protocol: string | null },
-): Token[] {
+): TokenScore[] {
   const needle = query.trim().toLowerCase()
   return tokens.filter((token) => {
-    if (needle && !`${token.symbol} ${token.name}`.toLowerCase().includes(needle)) return false
-    if (risk !== "all" && token.risk !== risk) return false
-    if (protocol && !token.markets.some((market) => market.protocol === protocol)) return false
+    if (needle && !token.symbol.toLowerCase().includes(needle)) return false
+    if (risk !== "all" && deriveRisk(token) !== risk) return false
+    if (protocol && !token.protocols.includes(protocol as TokenScore["protocols"][number])) return false
     return true
   })
 }
 
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
@@ -84,11 +77,7 @@ export function Filters({
         ))}
         {protocols.length > 0 ? <span aria-hidden className="mx-1 h-4 w-px bg-border" /> : null}
         {protocols.map((value) => (
-          <Chip
-            key={value}
-            active={protocol === value}
-            onClick={() => onProtocol(protocol === value ? null : value)}
-          >
+          <Chip key={value} active={protocol === value} onClick={() => onProtocol(protocol === value ? null : value)}>
             {prettySource(value)}
           </Chip>
         ))}
@@ -101,9 +90,9 @@ export function Filters({
             type="search"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            placeholder="filter by symbol or name"
-            aria-label="filter tokens by symbol or name"
-            className="h-8 w-56 border border-input bg-transparent pr-3 pl-8 font-mono text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring"
+            placeholder="filter by symbol"
+            aria-label="filter tokens by symbol"
+            className="h-8 w-48 border border-input bg-transparent pr-3 pl-8 font-mono text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring"
           />
         </div>
       </div>

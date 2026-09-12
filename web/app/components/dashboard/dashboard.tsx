@@ -11,7 +11,7 @@ import { EmptyState, ErrorBanner, LoadingState } from "@/components/dashboard/st
 import { TokenDrawer } from "@/components/dashboard/token-drawer"
 import { TokenTable, type SortDir, type SortKey } from "@/components/dashboard/token-table"
 import { getTokens } from "@/lib/api"
-import type { Token } from "@/lib/types"
+import type { TokenScore } from "@/lib/types"
 
 export function Dashboard() {
   const router = useRouter()
@@ -19,7 +19,7 @@ export function Dashboard() {
   const demo = params.get("demo") === "1"
   const selected = params.get("token")
 
-  const [tokens, setTokens] = useState<Token[] | null>(null)
+  const [tokens, setTokens] = useState<TokenScore[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [risk, setRisk] = useState<RiskFilter>("all")
@@ -63,7 +63,7 @@ export function Dashboard() {
     [params, router],
   )
 
-  const onSelect = useCallback((token: Token) => openToken(token.address), [openToken])
+  const onSelect = useCallback((token: TokenScore) => openToken(token.tokenAddress), [openToken])
 
   const closeDrawer = useCallback(() => {
     const next = new URLSearchParams(params.toString())

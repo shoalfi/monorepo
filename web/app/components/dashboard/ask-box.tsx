@@ -5,13 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Markdown } from "@/components/dashboard/markdown"
 import { postAsk } from "@/lib/api"
-import { prettySource } from "@/lib/format"
-import type { AskResponse, Token } from "@/lib/types"
+import type { AskResponse, TokenScore } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 
 const PRESETS = [
-  "which markets are over-lent right now?",
+  "which collateral tokens have more lent against them than could be sold into a 10% move?",
   "what is the attack cost on the worst market?",
   "which collateral has no uniswap depth?",
 ]
@@ -22,7 +21,7 @@ const COUNTDOWN_AFTER_MS = 10_000
 /** Tool-call lines appear one at a time so progress is legible on camera. */
 const REVEAL_STEP_MS = 120
 
-export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address: string) => void }) {
+export function AskBox({ tokens, onToken }: { tokens: TokenScore[]; onToken: (address: string) => void }) {
   const [question, setQuestion] = useState("")
   const [pending, setPending] = useState(false)
   const [response, setResponse] = useState<AskResponse | null>(null)
@@ -60,14 +59,11 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
       try {
         const result = await postAsk(trimmed, controller.signal)
         setResponse(result)
-        // Stagger the already-complete toolCalls array into view.
+        // The api returns a complete toolCalls array; stagger it into view.
         result.toolCalls.forEach((_, index) => {
           timers.current.push(setTimeout(() => setRevealed(index + 1), index * REVEAL_STEP_MS))
         })
-      } catch (cause: unknown) {
-        // Timeout and transport failure read the same to the viewer: the
-        // table is unaffected either way.
-        void cause
+      } catch {
         setError("couldn't reach the model, table below is still live")
       } finally {
         clearTimeout(timeout)
@@ -79,6 +75,18 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
 
   const remaining = Math.max(0, Math.ceil((TIMEOUT_MS - elapsed) / 1000))
   const showCountdown = pending && elapsed >= COUNTDOWN_AFTER_MS
+  // mode tells us the mcp connector was attached; toolCalls tells us it was
+  // actually queried. Claiming "via mcp" with zero tool calls would overstate
+  // what happened, so the snapshot case gets its own honest label.
+  const connectorUp = response ? response.mode === "connector" || response.mode === "client" : false
+  const viaMcp = connectorUp && (response?.toolCalls.length ?? 0) > 0
+  const pillLabel = !response
+    ? ""
+    : viaMcp
+      ? "answered via the graph subgraph mcp"
+      : connectorUp
+        ? "answered from the live snapshot"
+        : "answered from cached table"
 
   return (
     <section className="border-x border-t border-border px-4 py-5">
@@ -140,24 +148,27 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
         <div className="mt-4">
           <ul className="space-y-1">
             {response.toolCalls.slice(0, revealed).map((call, index) => (
-              <li key={`${call.tool}-${call.target}-${index}`} className="font-mono text-xs text-muted-foreground">
-                querying {prettySource(call.target)} {call.tool === "subgraph_query" ? "subgraph" : call.tool}… {call.ms}ms
+              <li key={`${call.name}-${index}`} className="font-mono text-xs text-muted-foreground">
+                {call.name} {call.argsSummary}
               </li>
             ))}
           </ul>
 
           {revealed >= response.toolCalls.length ? (
             <>
-              <span
-                className={cn(
-                  "mt-3 inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-xs",
-                  response.usedMcp
-                    ? "border-success/40 text-success-foreground"
-                    : "border-border text-muted-foreground",
-                )}
-              >
-                {response.usedMcp ? "answered via the graph subgraph mcp" : "answered from cached table"}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-xs",
+                    viaMcp ? "border-success/40 text-success-foreground" : "border-border text-muted-foreground",
+                  )}
+                >
+                  {pillLabel}
+                </span>
+                {response.error ? (
+                  <span className="font-mono text-xs text-muted-foreground">{response.error}</span>
+                ) : null}
+              </div>
               <div className="mt-3 max-w-3xl">
                 <Markdown source={response.answer} tokens={tokens} onToken={onToken} />
               </div>

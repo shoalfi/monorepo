@@ -1,33 +1,36 @@
 {
-  "address": "0x100c100c100c100c100c100c100c100c100c100c",
+  "tokenAddress": "0x100c100c100c100c100c100c100c100c100c100c",
   "symbol": "PT-TESTL-DEC2026",
-  "name": "Test Lima Principal Token, Dec 2026",
+  "decimals": 18,
   "priceUsd": 0.9412,
-  "depth": {
-    "state": "unknown",
-    "sellableUsd10pct": null,
-    "venue": null,
-    "poolCount": 0
-  },
+  "depthStatus": "no_venue",
+  "sellableDepthUsd": null,
   "safeCapUsd": null,
-  "exposure": {
-    "depositsUsd": 67500000,
-    "maxLtv": 0.86,
-    "exposureUsd": 58050000
-  },
-  "ratio": null,
-  "attackCost": null,
-  "risk": "unknown",
+  "exposureUsd": 58050000,
+  "exposureRatio": null,
+  "liquidationAttackCostUsd": null,
+  "pumpCostUsd": null,
+  "requiredDrop": 0.085,
+  "protocols": [
+    "compound-v3"
+  ],
+  "truncated": false,
+  "pools": [],
   "markets": [
     {
-      "protocol": "morpho-blue",
-      "marketId": "0x900d900d900d900d900d900d900d900d900d900d",
-      "ltv": 0.86,
-      "liquidationThreshold": 0.915,
-      "depositsUsd": 67500000,
-      "borrowsUsd": 36400000
+      "protocol": "compound-v3",
+      "marketId": "0x900c900c900c900c900c900c900c900c900c900c",
+      "marketName": "Compound V3 TESTUSD - PT-TESTL-DEC2026",
+      "token": {
+        "address": "0x100c100c100c100c100c100c100c100c100c100c",
+        "symbol": "PT-TESTL-DEC2026",
+        "decimals": 18
+      },
+      "depositUsd": 67500000,
+      "maxLtv": 0.86,
+      "liquidationThreshold": 0.915
     }
   ],
-  "pools": [],
-  "summary": "fixture summary: no uniswap v3 venue was found for PT-TESTL-DEC2026, so depth is unknown rather than shallow and no safe cap can be computed."
+  "error": null,
+  "computedAt": "2026-09-13T09:41:00.000Z"
 }

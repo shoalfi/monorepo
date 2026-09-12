@@ -5,12 +5,12 @@ import Link from "next/link"
 
 import { FixturePill } from "@/components/dashboard/pills"
 import { explorerBlockUrl, usingFixtures } from "@/lib/api"
-import { blockNumber, utcTime } from "@/lib/format"
+import { blockNumber, prettySource, utcTime } from "@/lib/format"
 import type { Meta } from "@/lib/types"
 import { useMeta } from "@/lib/use-meta"
 
 function MetaPill({ meta, failed }: { meta: Meta | null; failed: boolean }) {
-  // A failed /meta is never hidden: a stale block number on camera is worse
+  // A failed /health is never hidden: a stale block number on camera is worse
   // than an obvious red pill.
   if (failed) {
     return (
@@ -28,6 +28,14 @@ function MetaPill({ meta, failed }: { meta: Meta | null; failed: boolean }) {
       </span>
     )
   }
+  if (meta.refreshing || meta.block === null) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-warning/50 bg-warning/10 px-3 py-1 font-mono text-xs text-warning-foreground">
+        <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+        refreshing, no scored tokens yet
+      </span>
+    )
+  }
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 font-mono text-xs text-muted-foreground">
       <span aria-hidden className="size-1.5 rounded-full bg-success" />
@@ -40,7 +48,7 @@ function MetaPill({ meta, failed }: { meta: Meta | null; failed: boolean }) {
       >
         {blockNumber(meta.block)}
       </a>{" "}
-      · {utcTime(meta.refreshedAt)}
+      · refreshed {utcTime(meta.refreshedAt)}
     </span>
   )
 }
@@ -59,8 +67,13 @@ export function Header() {
           {usingFixtures ? <FixturePill /> : null}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <MetaPill meta={meta} failed={failed} />
+          {meta && !failed ? (
+            <span className="hidden font-mono text-xs text-muted-foreground lg:inline">
+              {prettySource(meta.lendingSource)} schema
+            </span>
+          ) : null}
           <Link
             href="/incident"
             className="hidden font-mono text-xs text-muted-foreground transition-colors duration-100 hover:text-foreground sm:block"

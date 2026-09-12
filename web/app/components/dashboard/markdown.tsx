@@ -2,7 +2,7 @@
 
 import { Fragment, type ReactNode } from "react"
 
-import type { Token } from "@/lib/types"
+import type { TokenScore } from "@/lib/types"
 
 /**
  * A deliberately small markdown renderer: bold, inline code, list items and
@@ -11,7 +11,7 @@ import type { Token } from "@/lib/types"
  */
 
 /** Splits on **bold** and `code`, then linkifies any known token symbol. */
-function renderInline(text: string, tokens: Token[], onToken: (address: string) => void): ReactNode[] {
+function renderInline(text: string, tokens: TokenScore[], onToken: (address: string) => void): ReactNode[] {
   const nodes: ReactNode[] = []
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g
   let last = 0
@@ -47,7 +47,7 @@ function renderInline(text: string, tokens: Token[], onToken: (address: string) 
 /** Token symbols that exist in /tokens become buttons that open the drawer. */
 function linkifySymbols(
   text: string,
-  tokens: Token[],
+  tokens: TokenScore[],
   onToken: (address: string) => void,
   nextKey: () => number,
 ): ReactNode[] {
@@ -67,7 +67,7 @@ function linkifySymbols(
         <button
           key={`t${nextKey()}`}
           type="button"
-          onClick={() => onToken(token.address)}
+          onClick={() => onToken(token.tokenAddress)}
           className="underline decoration-dotted underline-offset-4 transition-colors duration-100 hover:decoration-solid"
         >
           {token.symbol}
@@ -88,7 +88,7 @@ export function Markdown({
   onToken,
 }: {
   source: string
-  tokens: Token[]
+  tokens: TokenScore[]
   onToken: (address: string) => void
 }) {
   const lines = source.split("\n")
