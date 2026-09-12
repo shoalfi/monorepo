@@ -1,11 +1,29 @@
 # shoalfi contracts
 
-> **ROADMAP. Not deployed to any public network, not audited.**
-> shoalfi ships as an off-chain API for ETHOnline 2026. This folder shows how the
-> API's `sellable_depth_usd` becomes an on-chain borrow cap. Everything here
-> compiles, is tested, and has been deployed and exercised on a local chain
-> against real scanner numbers, but nothing runs on a public network and no
-> lending market consumes it.
+> shoalfi ships as an off-chain API for ETHOnline 2026. This folder turns the
+> API's `sellable_depth_usd` into an on-chain borrow cap. It is deployed to
+> Sepolia and reading a real snapshot, but no lending market consumes it.
+
+## Deployed (Sepolia, chain 11155111)
+
+| Contract | Address |
+| --- | --- |
+| `CapSteward` | [`0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E`](https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E) |
+| `DepthOracle` | [`0x4655a18d3b3cF9644B90f633dbA030EAB12FF167`](https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167) |
+
+Seeded with WBTC's real sellable depth from the live scanner at Ethereum
+mainnet block 25963701 (`$28,795,078`):
+
+```sh
+cast call 0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E \
+  'maxBorrowableUsd(address)(uint256)' \
+  0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599 \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+# 8638523503170682500000000  -> $8,638,523.50, exactly 30% of the published depth
+```
+
+Once the snapshot passes `maxStaleness` (900s) the same call returns `0`: no
+fresh depth, no new borrows. Full record in [deployments/sepolia.json](../deployments/sepolia.json).
 
 ## What is here
 

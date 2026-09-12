@@ -1,12 +1,18 @@
 import { StatusBadge } from "@/components/dashboard/pills"
 
 /**
- * Only lists work that exists in the repo. The cap steward is a real contract
- * with passing tests (contracts/) that is not deployed. Items that were not
+ * Only lists work that exists and runs. The cap steward is deployed to sepolia
+ * and reading a real published snapshot; the badge says "sepolia only" because
+ * it is on no mainnet and no lending market consumes it. Items that were not
  * written at all are not advertised here.
  */
 const ITEMS = [
-  { title: "cap steward contract", detail: "clamps borrow caps to safe cap", status: "not deployed" },
+  {
+    title: "cap steward contract",
+    detail: "live on sepolia: turns a published depth snapshot into a borrow cap",
+    status: "sepolia only",
+    href: "https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E",
+  },
 ]
 
 export function Roadmap() {
@@ -22,7 +28,14 @@ export function Roadmap() {
             className={`px-4 py-3 ${index < ITEMS.length - 1 ? "border-b border-border md:border-r md:border-b-0" : ""}`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium tracking-tight">{item.title}</span>
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium tracking-tight underline decoration-dotted underline-offset-4 hover:decoration-solid"
+              >
+                {item.title}
+              </a>
               <StatusBadge label={item.status} />
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>

@@ -1,0 +1,27 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployedAt": "2026-09-12T20:34:00Z",
+  "contracts": {
+    "DepthOracle": {
+      "address": "0x4655a18d3b3cF9644B90f633dbA030EAB12FF167",
+      "tx": "0xc953e5c6fffee2e3e99b1bf48959e35470d0a5cf9cbc7dfc7bcc49ae6cf854a1",
+      "keeper": "0xc6377415Ee98A7b71161Ee963603eE52fF7750FC"
+    },
+    "CapSteward": {
+      "address": "0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E",
+      "tx": "0x4c52cde25e14d9eb250da45831cdd167e494efa9649d1fcb6b765f20bccc4efc",
+      "capBps": 3000,
+      "maxStaleness": 900
+    }
+  },
+  "seed": {
+    "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+    "symbol": "WBTC",
+    "sellableDepthUsd": "28795078343902275000000000",
+    "maxBorrowableUsd": "8638523503170682500000000",
+    "sourceBlock": 25963701,
+    "tx": "0xe4379b5dadaf8ca79fd6f534e88d7608fbba9c33e661f71c800ccc7442c2ccbb"
+  },
+  "note": "Testnet only. DepthOracle is a single-keeper feed with no signatures, median or dispute window. Not audited."
+}
