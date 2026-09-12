@@ -16,7 +16,7 @@ const incidents = [
     icon: "/protocols/moonwell.png",
     date: "aug 27",
     figure: "$8.7m",
-    body: "illiquid MAMO manipulated and used as collateral on base.",
+    body: "MAMO pumped ~8× across two thin pools, then used as collateral on base.",
   },
   {
     name: "morpho",

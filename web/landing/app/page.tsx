@@ -19,11 +19,13 @@ const faqs: FaqItem[] = [
   },
   {
     question: "what does a lending market have to do to use it?",
-    answer: "enroll with the cap steward in one call.",
+    answer:
+      "nothing today. shoalfi is a read-only scanner you can point at a market. the on-chain cap that would clamp borrowing to the safe number is roadmap, not deployed.",
   },
   {
     question: "where do the numbers come from?",
-    answer: "uniswap pools via the graph, plus a cex side computed inside a chainlink confidential workflow.",
+    answer:
+      "uniswap v3 pool ticks via the graph, against compound v3 collateral markets on ethereum mainnet.",
   },
 ]
 

@@ -1,12 +1,11 @@
 import Image from "next/image"
 
-import { docsUrl, githubUrl, redTeamUrl, scannerUrl } from "@/lib/site"
+import { docsUrl, githubUrl, scannerUrl } from "@/lib/site"
 
 const links = [
   { label: "github", href: githubUrl, external: true },
   { label: "docs", href: docsUrl, external: true },
   { label: "scanner", href: scannerUrl },
-  { label: "red team", href: redTeamUrl },
 ]
 
 export function Footer() {
