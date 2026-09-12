@@ -7,7 +7,7 @@ For every token that Aave v3 and Compound v3 accept as collateral, shoalfi asks:
 if a protocol had to sell this collateral today, what would it actually get?
 
 This document covers the backend API and Foundry contracts: the JSON API, the
-natural-language `/ask` endpoint, and the `CapSteward` contract stub, all built
+natural-language `/ask` endpoint, and the `CapSteward` contract, all built
 and verified as part of this work. Every number is fetched live from The Graph
 Network at request time or on a five-minute refresh; there is no mocked,
 cached, or fixture data on any code path. The repository also contains a
@@ -41,27 +41,17 @@ The 10%, 30%, 2× and $5M thresholds are `SLIPPAGE_BPS`, `CAP_FRACTION`,
 
 ## How it works
 
-```
-The Graph Network (Subgraph Studio API key)
- ├─ Messari standardized lending subgraphs  ─┐
- │    aave-v3-ethereum, compound-v3-ethereum │   server/src/collector/lending*.ts
- │    (optional: morpho-blue-ethereum)       ├──► Market[] (token, deposits, LTV, LT)
- └─ Uniswap v3 Ethereum subgraph ────────────┘   server/src/collector/uniswap.ts
-      bundle, pools, ticks                    ──► Pool[], Tick[]
-                                                      │
-                          server/src/engine/depth.ts  ▼  tick walk (v3-sdk math)
-                          server/src/engine/risk.ts   ▼  exposure, ratio, attack costs
-                                                      │
-                                 SQLite file in server/data/ (token_scores, refresh_runs)
-                                                      │
-                        Fastify: GET /health  GET /tokens  GET /tokens/:address
-                                 POST /ask ──► Claude + The Graph Subgraph MCP
-                                               (live subgraph queries on demand)
-```
+![shoalfi architecture: Messari lending subgraphs and the Uniswap v3 subgraph feed the collectors, the depth and risk engines write a SQLite file, and Fastify serves it over /health, /tokens and /ask, with /ask reaching Claude and The Graph Subgraph MCP for live subgraph queries](docs/architecture.png)
 
-A refresh runs on boot and then on `REFRESH_CRON` (every five minutes by default).
-Each run fetches every collateral market, walks the top Uniswap v3 pools for
-every distinct collateral token, and upserts one row per token.
+The diagram shows every lending source the collectors support. What is actually
+configured on the deployed API today is the Uniswap v3 subgraph plus **Compound
+v3 and Morpho Blue** (36 and 214 markets); the Messari Aave v3 subgraph is
+reachable but returns no markets, so it is switched off rather than left to
+contribute nothing. `GET /health` always reports the live list.
+
+A refresh runs on boot and then on `REFRESH_CRON`. Each run fetches every
+collateral market, walks the top Uniswap v3 pools for every distinct collateral
+token, and upserts one row per token.
 
 ## The Graph integration
 
@@ -261,32 +251,6 @@ Depth is computed from tick liquidity, not approximated from TVL or volume.
   when the cap is hit the remaining range is extrapolated with the last known
   liquidity and the row is marked `truncated`.
 
-## Roadmap
-
-- **CapSteward** ([contracts/](contracts/README.md)): an on-chain cap that turns a
-  depth snapshot into `maxBorrowableUsd(token)`. Deployed and verified on
-  Sepolia and reading a real snapshot, but on no mainnet, unaudited, and no
-  lending market consumes it. A production feed also needs signatures, a
-  multi-reporter median and a dispute window; `DepthOracle` has none of these.
-- Multi-chain (Base first) and Uniswap v4 pools; for MAMO-style tokens the label
-  must say which venues are included, since MAMO's liquidity was split between
-  Aerodrome Slipstream and Uniswap v4.
-- Curve and Balancer depth for LSTs and stablecoins.
-- A Chainlink CRE confidential workflow that applies private per-protocol
-  thresholds to the public depth feed.
-
-## AI tools used
-
-Every file in `server/`, `contracts/` (except the vendored `contracts/lib/forge-std`),
-and this README's backend/contracts content was written with Claude Code
-(Claude Sonnet 5 and Claude Fable 5.1) working from a written specification,
-with the tick-walk math, subgraph field names, and Anthropic API shapes
-verified against primary sources during implementation. Human review covered
-the spec, the design decisions recorded in the commit history, and the
-acceptance checks (probe output, WETH depth sanity check, unit, e2e, and
-Foundry tests). `web/app` and `web/landing` are maintained separately by the
-team; see their own READMEs for their own AI-tool disclosure, if any.
-
 ## Sources
 
 - The Defiant, Moonwell / MAMO: <https://thedefiant.io/news/hacks/moonwell-loses-8-7-million-to-mamo-price-manipulation-on-base>
@@ -301,28 +265,6 @@ team; see their own READMEs for their own AI-tool disclosure, if any.
 - The Graph, Subgraph MCP: <https://thegraph.com/docs/en/subgraphs/subgraph-mcp/introduction/>
 - Anthropic, MCP connector: <https://platform.claude.com/docs/en/agents-and-tools/mcp-connector>
 - Uniswap v3 SDK: <https://docs.uniswap.org/sdk/v3/overview>
-
-## Repository layout and provenance
-
-```text
-shoalfi/
-├── web/
-│   ├── landing/  # Landing frontend (Next.js + coss ui)
-│   └── app/      # Scanner frontend (web/app) (Next.js + coss ui)
-├── server/       # Bun + Fastify API, collectors, depth engine, refresh job, tests
-├── contracts/    # Foundry: CapSteward + DepthOracle (deployed to Sepolia), tests
-├── deployments/  # Deployed addresses and transaction hashes
-├── docs/         # data-sources.md (generated by the probe), mamo-case-study.md
-├── package.json  # Bun workspaces and root commands
-├── bun.lock
-└── README.md
-```
-
-This repository's first commits (2026-09-06) scaffolded an unrelated idea
-("Rivlet"). It was rebranded in place rather than restarted: the frontend
-(`web/app`, `web/landing`) was renamed and rebuilt for shoalfi by the team,
-and the backend, contracts, and docs described in this README were built
-separately and merged in alongside it.
 
 ## License
 
