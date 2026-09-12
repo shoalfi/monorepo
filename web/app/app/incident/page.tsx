@@ -1,8 +1,6 @@
 import type { Metadata } from "next"
 
 import { Header } from "@/components/dashboard/header"
-import { RiskPill } from "@/components/dashboard/pills"
-import { DASH } from "@/lib/format"
 
 export const metadata: Metadata = {
   title: "aug 2026 incidents · shoalfi",
@@ -22,12 +20,6 @@ interface Incident {
   headline: string
   rows: string[]
   sources: Source[]
-  /** Only card 1 carries a reconstructed shoalfi row. */
-  reconstructed?: {
-    sellable: string
-    safeCap: string
-    lentAgainst: string
-  }
 }
 
 const INCIDENTS: Incident[] = [
@@ -47,7 +39,6 @@ const INCIDENTS: Incident[] = [
       "net loss ~$8.7m",
       "caps set to 1 wei after",
     ],
-    reconstructed: { sellable: DASH, safeCap: DASH, lentAgainst: "$11.03M" },
     sources: [
       { label: "the defiant", href: null },
       { label: "cryptoticker", href: null },
@@ -92,38 +83,6 @@ const INCIDENTS: Incident[] = [
   },
 ]
 
-function ReconstructedRow({ data }: { data: NonNullable<Incident["reconstructed"]> }) {
-  return (
-    <div className="mt-5 border border-border">
-      <p className="border-b border-border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
-        reconstructed from public data, not live
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-border font-mono text-xs text-muted-foreground">
-              <th className="px-3 py-2 text-right font-normal">sellable (10% move)</th>
-              <th className="px-3 py-2 text-right font-normal">safe cap (30%)</th>
-              <th className="px-3 py-2 text-right font-normal">lent against it</th>
-              <th className="px-3 py-2 font-normal">risk</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr data-risk="red">
-              <td className="px-3 py-2 text-right font-mono tabular-nums">{data.sellable}</td>
-              <td className="px-3 py-2 text-right font-mono tabular-nums">{data.safeCap}</td>
-              <td className="px-3 py-2 text-right font-mono tabular-nums">{data.lentAgainst}</td>
-              <td className="px-3 py-2">
-                <RiskPill risk="red" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 function Card({ incident }: { incident: Incident }) {
   return (
     <article className="flex flex-col border-b border-border px-4 py-8 md:px-8 lg:border-r lg:border-b-0 lg:last:border-r-0">
@@ -138,7 +97,6 @@ function Card({ incident }: { incident: Incident }) {
           </li>
         ))}
       </ul>
-      {incident.reconstructed ? <ReconstructedRow data={incident.reconstructed} /> : null}
       <div className="mt-auto pt-6">
         <p className="font-mono text-xs text-muted-foreground">
           sources:{" "}
