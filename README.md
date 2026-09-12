@@ -195,6 +195,53 @@ curl -si "https://shoalfiserver-production.up.railway.app/tokens?limit=1" \
 # x-shoalfi-refreshed-at: 2026-09-12T19:51:43.911Z
 ```
 
+## Bounty eligibility
+
+Every claim below links to the exact code at commit
+[`e9ce999`](https://github.com/shoalfi/monorepo/tree/e9ce999976fda64fc353118bdf609fb1234e0b05). Permalinks are pinned to that
+commit, so line numbers stay correct as the repo moves on.
+
+### The Graph — Best AI Tooling / AI Use Case (From Scratch)
+
+Two Graph products, composed.
+
+| Claim | Code |
+| --- | --- |
+| Gateway client for The Graph Network (auth, timeout, retry, empty-data guard) | [`collector/graph.ts#L34`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/graph.ts#L34) |
+| One query covers Aave v3, Compound v3 and Morpho Blue because the Messari lending schema is shared; only the subgraph ID changes | [`collector/lending.messari.ts#L22-L76`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.messari.ts#L22-L76) |
+| Fallback collector for the official Aave subgraph, whose field names and units differ | [`collector/lending.aave.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.aave.ts) |
+| Multi-source fan-out: failures are isolated per subgraph, a partial result still scores | [`collector/lending.ts#L44-L80`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.ts#L44-L80) |
+| **Subgraph MCP** attached to the Anthropic Messages API, allowlisting `execute_query_by_subgraph_id`, `get_schema_by_subgraph_id`, `search_subgraphs_by_keyword` | [`routes/ask.ts#L165-L175`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/routes/ask.ts#L165-L175) |
+| Client-side MCP fallback when the hosted connector is unavailable | [`routes/ask.ts#L205-L220`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/routes/ask.ts#L205-L220) |
+| Every MCP call the model made is returned to the client as `toolCalls`, and the UI only shows the MCP badge when that array is non-empty | [`ask-box.tsx#L80-L92`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/ask-box.tsx#L80-L92) |
+| Subgraph health probe that writes `docs/data-sources.md` | [`scripts/probe.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/scripts/probe.ts) |
+
+### Uniswap
+
+Depth is computed from tick liquidity, not approximated from TVL or volume.
+
+| Claim | Code |
+| --- | --- |
+| `@uniswap/v3-sdk` `TickMath` and `SqrtPriceMath` drive the math | [`engine/depth.ts#L1-L20`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L1-L20) |
+| Price move → target tick | [`engine/depth.ts#L26`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L26) |
+| Sell and pump direction selection (which token flows in) | [`engine/depth.ts#L46-L60`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L46-L60) |
+| The tick walk: crosses initialized ticks, adjusts liquidity by `liquidityNet`, marks `truncated` at the page cap | [`engine/depth.ts#L80`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L80) |
+| Per-token sellable depth, summed across pools | [`engine/depth.ts#L153`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L153) |
+| Pump cost, valuing the quote token spent | [`engine/depth.ts#L196`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L196) |
+| Pools and cursor-paginated ticks from the Uniswap v3 subgraph | [`collector/uniswap.ts#L78`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/uniswap.ts#L78), [`#L109`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/uniswap.ts#L109) |
+| Walker checked against closed-form single-range formulas, both directions | [`test/depth.test.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/test/depth.test.ts) |
+| Developer feedback write-up | [`FEEDBACK.md`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/FEEDBACK.md) |
+
+### What the numbers become
+
+| Claim | Code / link |
+| --- | --- |
+| `safeCapUsd = sellableDepthUsd × 0.30`, `exposureRatio = exposureUsd ÷ safeCapUsd` | [`engine/risk.ts#L63-L72`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/risk.ts#L63-L72) |
+| Risk bands are derived in the browser and the rule is printed on the page, because the API returns no risk field | [`lib/api.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/lib/api.ts), [`footnote.tsx`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/footnote.tsx) |
+| `no_venue` tokens are excluded from the ranking rather than scored as safe | [`token-table.tsx`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/token-table.tsx) |
+| On-chain cap, deployed and verified on Sepolia | [`CapSteward.sol`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/contracts/src/CapSteward.sol) · [Etherscan](https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E) |
+| Keeper-written depth oracle it reads from | [`DepthOracle.sol`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/contracts/src/DepthOracle.sol) · [Etherscan](https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167) |
+
 ## Known simplifications
 
 - **Exposure is an upper bound.** `deposits × maxLTV` assumes every depositor
