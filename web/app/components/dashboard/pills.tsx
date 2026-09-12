@@ -41,7 +41,7 @@ export function FixturePill({ className }: { className?: string }) {
   )
 }
 
-export function NotBuiltBadge({ className }: { className?: string }) {
+export function StatusBadge({ label, className }: { label: string; className?: string }) {
   return (
     <span
       className={cn(
@@ -49,7 +49,7 @@ export function NotBuiltBadge({ className }: { className?: string }) {
         className,
       )}
     >
-      not built
+      {label}
     </span>
   )
 }

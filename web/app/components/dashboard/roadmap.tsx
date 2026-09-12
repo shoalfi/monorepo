@@ -1,13 +1,14 @@
-import { NotBuiltBadge } from "@/components/dashboard/pills"
+import { StatusBadge } from "@/components/dashboard/pills"
 
 /**
- * Everything here is unbuilt and says so. Nothing in this strip may be
- * described anywhere else as existing.
+ * Nothing here runs in production. The cap steward is a real contract with
+ * passing tests (contracts/), so it says "not deployed" rather than claiming
+ * less than is true; the other two are not written at all.
  */
 const ITEMS = [
-  { title: "cap steward contract", detail: "clamps borrow caps to safe cap" },
-  { title: "more venues", detail: "curve, balancer, aerodrome" },
-  { title: "l2 markets", detail: "base, arbitrum" },
+  { title: "cap steward contract", detail: "clamps borrow caps to safe cap", status: "not deployed" },
+  { title: "more venues", detail: "curve, balancer, aerodrome", status: "not built" },
+  { title: "l2 markets", detail: "base, arbitrum", status: "not built" },
 ]
 
 export function Roadmap() {
@@ -24,7 +25,7 @@ export function Roadmap() {
           >
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium tracking-tight">{item.title}</span>
-              <NotBuiltBadge />
+              <StatusBadge label={item.status} />
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
           </li>
