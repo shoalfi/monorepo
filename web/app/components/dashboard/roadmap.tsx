@@ -1,14 +1,12 @@
 import { StatusBadge } from "@/components/dashboard/pills"
 
 /**
- * Nothing here runs in production. The cap steward is a real contract with
- * passing tests (contracts/), so it says "not deployed" rather than claiming
- * less than is true; the other two are not written at all.
+ * Only lists work that exists in the repo. The cap steward is a real contract
+ * with passing tests (contracts/) that is not deployed. Items that were not
+ * written at all are not advertised here.
  */
 const ITEMS = [
   { title: "cap steward contract", detail: "clamps borrow caps to safe cap", status: "not deployed" },
-  { title: "more venues", detail: "curve, balancer, aerodrome", status: "not built" },
-  { title: "l2 markets", detail: "base, arbitrum", status: "not built" },
 ]
 
 export function Roadmap() {
@@ -17,7 +15,7 @@ export function Roadmap() {
       <p className="border-b border-border px-4 py-2 font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase">
         roadmap
       </p>
-      <ul className="grid md:grid-cols-3">
+      <ul className="grid md:grid-cols-1">
         {ITEMS.map((item, index) => (
           <li
             key={item.title}
