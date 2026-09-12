@@ -40,7 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={cn("dark antialiased", "font-sans", inter.variable, geistMono.variable, GeistPixelSquare.variable)}
       style={{ ["--font-pixel" as string]: "var(--font-geist-pixel-square)" }}
     >
-      <body className="bg-background text-foreground selection:bg-primary selection:text-primary-foreground">{children}</body>
+      <body className="bg-background text-foreground">{children}</body>
     </html>
   )
 }

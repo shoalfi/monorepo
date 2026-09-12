@@ -25,7 +25,7 @@ const faqs: FaqItem[] = [
   {
     question: "where do the numbers come from?",
     answer:
-      "uniswap v3 pool ticks via the graph, against compound v3 collateral markets on ethereum mainnet.",
+      "uniswap v3 pool ticks via the graph, against compound v3 and morpho blue collateral markets on ethereum mainnet.",
   },
 ]
 

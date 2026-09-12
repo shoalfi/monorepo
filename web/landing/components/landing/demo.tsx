@@ -21,8 +21,8 @@ export function Demo({ src }: { src?: string }) {
           <Kicker>demo</Kicker>
           <Headline className="mt-3 text-[clamp(1.75rem,3.5vw,2.75rem)]">see what your collateral is actually worth.</Headline>
           <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-            a live scanner over compound v3 collateral, ranked by how much is lent vs how much could be sold on
-            uniswap v3. plus the numbers from the august incidents.
+            a live scanner over compound v3 and morpho blue collateral, ranked by how much is lent vs how much could
+            be sold on uniswap v3. plus the numbers from the august incidents.
           </p>
         </Reveal>
       </div>
