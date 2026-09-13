@@ -1,13 +1,9 @@
-import type { AskResponse, Meta, Token, TokenDetail } from "@/lib/types"
+import { toAskResponse, toToken, toTokenDetail } from "@/lib/adapt"
+import type { AskResponse, AskResponseDTO, Meta, Token, TokenDetail, TokenScoreDTO } from "@/lib/types"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? ""
 const FORCE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true"
 
-/**
- * Fixtures are used when explicitly switched on, or whenever no API base is
- * configured. Everything that renders data reads this flag and shows the
- * yellow "fixture data" pill, so nothing fake can reach a recording unnoticed.
- */
 export const usingFixtures: boolean = FORCE_FIXTURES || API_BASE === ""
 
 export class ApiError extends Error {
@@ -29,7 +25,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(error instanceof Error ? error.message : "network request failed")
   }
   if (!response.ok) {
-    throw new ApiError(`${path} returned ${response.status} ${response.statusText}`.trim(), response.status)
+    const fallback = `${path} returned ${response.status} ${response.statusText}`.trim()
+    let message = fallback
+    try {
+      const body = (await response.json()) as { error?: unknown }
+      if (typeof body.error === "string" && body.error) message = body.error
+    } catch {}
+    throw new ApiError(message, response.status)
   }
   try {
     return (await response.json()) as T
@@ -38,24 +40,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+let cachedMeta: Promise<Meta> | null = null
+
 export function getMeta(signal?: AbortSignal): Promise<Meta> {
-  return request<Meta>(usingFixtures ? "/fixtures/meta.json" : "/meta", { signal })
+  if (signal) return request<Meta>(usingFixtures ? "/fixtures/meta.json" : "/meta", { signal })
+  if (!cachedMeta) {
+    cachedMeta = request<Meta>(usingFixtures ? "/fixtures/meta.json" : "/meta").catch((error: unknown) => {
+      cachedMeta = null
+      throw error
+    })
+  }
+  return cachedMeta
 }
 
-export function getTokens(signal?: AbortSignal): Promise<Token[]> {
-  return request<Token[]>(usingFixtures ? "/fixtures/tokens.json" : "/tokens", { signal })
+export async function getTokens(signal?: AbortSignal): Promise<Token[]> {
+  if (usingFixtures) return request<Token[]>("/fixtures/tokens.json", { signal })
+  const [scores, meta] = await Promise.all([
+    request<TokenScoreDTO[]>("/tokens", { signal }),
+    getMeta(),
+  ])
+  return scores.map((score) => toToken(score, meta))
 }
 
 export async function getToken(address: string, signal?: AbortSignal): Promise<TokenDetail> {
   if (!usingFixtures) {
-    return request<TokenDetail>(`/tokens/${address}`, { signal })
+    const [score, meta] = await Promise.all([
+      request<TokenScoreDTO>(`/tokens/${address}`, { signal }),
+      getMeta(),
+    ])
+    return toTokenDetail(score, meta)
   }
   try {
     return await request<TokenDetail>(`/fixtures/token-${address.toLowerCase()}.json`, { signal })
   } catch {
-    // Only two fixture tokens have a detail file. For the rest, fall back to the
-    // list entry so the drawer still opens, with pools and summary genuinely
-    // absent rather than fabricated.
     const tokens = await getTokens(signal)
     const token = tokens.find((candidate) => candidate.address.toLowerCase() === address.toLowerCase())
     if (!token) throw new ApiError(`no fixture for token ${address}`)
@@ -67,12 +84,14 @@ export async function postAsk(question: string, signal?: AbortSignal): Promise<A
   if (usingFixtures) {
     return request<AskResponse>("/fixtures/ask.json", { signal })
   }
-  return request<AskResponse>("/ask", {
+  const raw = await request<AskResponseDTO>("/ask", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ question }),
     signal,
   })
+  if (raw.mode === "fallback" && raw.error) throw new ApiError(raw.error)
+  return toAskResponse(raw)
 }
 
 export function explorerAddressUrl(address: string): string {
@@ -83,10 +102,6 @@ export function explorerBlockUrl(block: number): string {
   return `https://etherscan.io/block/${block}`
 }
 
-/**
- * Market pages for the protocols we can link deterministically. Anything not
- * listed falls back to the block explorer rather than guessing a url shape.
- */
 export function marketUrl(protocol: string, marketId: string): string {
   switch (protocol) {
     case "aave-v3":

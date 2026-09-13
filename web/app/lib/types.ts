@@ -16,6 +16,10 @@ export interface Meta {
   refreshedAt: string
   sources: { lending: string[]; dex: string[] }
   lendingSchema: LendingSchema
+  /** Fraction of sellable depth a market may lend against — mirrors CapSteward.capBps. */
+  capFraction: number
+  /** Fraction the pump-attack direction targets, e.g. 1.0 means +100%. */
+  pumpTargetPct: number
 }
 
 export interface Depth {
@@ -80,7 +84,8 @@ export interface TokenDetail extends Token {
 export interface ToolCall {
   tool: string
   target: string
-  ms: number
+  /** Null when the model path gives no per-tool timing (the MCP connector path). */
+  ms: number | null
 }
 
 export interface AskResponse {
@@ -88,4 +93,71 @@ export interface AskResponse {
   answer: string
   toolCalls: ToolCall[]
   usedMcp: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Backend DTOs — the shapes the server actually returns. `lib/adapt.ts` maps
+// these onto the view-model types above; nothing else in the app should read
+// these directly.
+
+export type DepthStatusDTO = "deep" | "shallow" | "no_venue"
+export type ProtocolDTO = "aave-v3" | "compound-v3" | "morpho-blue"
+
+export interface MarketDTO {
+  protocol: ProtocolDTO
+  marketId: string
+  marketName: string
+  token: { address: string; symbol: string; decimals: number }
+  depositUsd: number
+  /** 0..1 */
+  maxLtv: number
+  /** 0..1 */
+  liquidationThreshold: number
+}
+
+export interface PoolDepthDTO {
+  poolId: string
+  feeTier: number
+  pair: string
+  direction: "down" | "up"
+  depthUsd: number
+  tvlUsd: number
+  truncated: boolean
+}
+
+export interface TokenScoreDTO {
+  tokenAddress: string
+  symbol: string
+  decimals: number
+  priceUsd: number
+  depthStatus: DepthStatusDTO
+  sellableDepthUsd: number | null
+  safeCapUsd: number | null
+  exposureUsd: number
+  exposureRatio: number | null
+  liquidationAttackCostUsd: number | null
+  pumpCostUsd: number | null
+  requiredDrop: number
+  protocols: ProtocolDTO[]
+  truncated: boolean
+  pools: PoolDepthDTO[]
+  markets: MarketDTO[]
+  error: string | null
+  computedAt: string
+}
+
+export interface ToolCallDTO {
+  name: string
+  argsSummary: string
+  target: string
+  ms: number | null
+}
+
+export interface AskResponseDTO {
+  answer: string
+  rows: TokenScoreDTO[]
+  toolCalls: ToolCallDTO[]
+  mode: "connector" | "client" | "fallback"
+  usedMcp: boolean
+  error?: string
 }

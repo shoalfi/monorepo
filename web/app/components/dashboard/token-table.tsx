@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { RiskPill } from "@/components/dashboard/pills"
 import { useTooltip } from "@/components/dashboard/use-tooltip"
+import { useMeta } from "@/lib/use-meta"
 import { compactUsd, percent, priceUsd, ratio as fmtRatio } from "@/lib/format"
 import type { Token } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -13,26 +14,28 @@ export type SortDir = "asc" | "desc"
 
 const RISK_ORDER: Record<string, number> = { red: 3, amber: 2, green: 1, unknown: 0 }
 
-const COLUMNS: { key: SortKey; label: string; tip?: string; numeric: boolean }[] = [
-  { key: "symbol", label: "token", numeric: false },
-  { key: "price", label: "price", numeric: true },
-  {
-    key: "sellable",
-    label: "sellable (10% move)",
-    tip: "usd you could sell on uniswap v3 before price moves 10%",
-    numeric: true,
-  },
-  { key: "safeCap", label: "safe cap (30%)", numeric: true },
-  { key: "exposure", label: "lent against it", numeric: true },
-  {
-    key: "ratio",
-    label: "ratio",
-    tip: "lent against it ÷ sellable. above 1 means more is lent than could be sold.",
-    numeric: true,
-  },
-  { key: "attackCost", label: "attack cost", numeric: true },
-  { key: "risk", label: "risk", numeric: false },
-]
+function columns(safeCapFraction: number | null): { key: SortKey; label: string; tip?: string; numeric: boolean }[] {
+  return [
+    { key: "symbol", label: "token", numeric: false },
+    { key: "price", label: "price", numeric: true },
+    {
+      key: "sellable",
+      label: "sellable (10% move)",
+      tip: "usd you could sell on uniswap v3 before price moves 10%",
+      numeric: true,
+    },
+    { key: "safeCap", label: `safe cap (${safeCapFraction === null ? "—" : percent(safeCapFraction)})`, numeric: true },
+    { key: "exposure", label: "lent against it", numeric: true },
+    {
+      key: "ratio",
+      label: "ratio",
+      tip: "lent against it ÷ sellable. above 1 means more is lent than could be sold.",
+      numeric: true,
+    },
+    { key: "attackCost", label: "attack cost", numeric: true },
+    { key: "risk", label: "risk", numeric: false },
+  ]
+}
 
 function valueFor(token: Token, key: SortKey): number | string | null {
   switch (key) {
@@ -55,7 +58,6 @@ function valueFor(token: Token, key: SortKey): number | string | null {
   }
 }
 
-/** Missing values always sink, whichever way the column is sorted. */
 function compare(a: Token, b: Token, key: SortKey, dir: SortDir): number {
   const av = valueFor(a, key)
   const bv = valueFor(b, key)
@@ -69,8 +71,6 @@ function compare(a: Token, b: Token, key: SortKey, dir: SortDir): number {
 }
 
 export function sortTokens(tokens: Token[], key: SortKey, dir: SortDir) {
-  // Unknown depth is never mixed into the ranking: those tokens are not
-  // "safe", they are unmeasured, so they sit below a divider instead.
   const ranked = tokens.filter((token) => token.depth.state !== "unknown")
   const unknown = tokens.filter((token) => token.depth.state === "unknown")
   return {
@@ -162,6 +162,8 @@ export function TokenTable({
 }) {
   const { triggerProps, tooltip } = useTooltip()
   const { ranked, unknown } = sortTokens(tokens, sortKey, sortDir)
+  const { meta } = useMeta()
+  const COLUMNS = columns(meta?.capFraction ?? null)
 
   return (
     <>

@@ -1,18 +1,9 @@
-/**
- * End-to-end test: boots the real Fastify app (routes, CORS, error handler)
- * against a real temporary SQLite database and drives it over the actual
- * HTTP request/response cycle via Fastify's `inject` — no live network calls.
- *
- * Env vars are set here, before the app/db modules are imported, and never
- * from .env: this suite must be hermetic and runnable with no API keys.
- * ANTHROPIC_API_KEY is deliberately left unset so POST /ask deterministically
- * exercises its never-500 fallback path instead of calling Anthropic.
- */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { FastifyInstance } from "fastify"
+import type { Express } from "express"
+import request from "supertest"
 
 const dbDir = mkdtempSync(join(tmpdir(), "shoalfi-e2e-"))
 
@@ -35,7 +26,7 @@ const AAA = "0x1111111111111111111111111111111111111111"
 const BBB = "0x2222222222222222222222222222222222222222"
 const now = new Date()
 
-let app: FastifyInstance
+let app: Express
 
 beforeAll(async () => {
   await initSchema()
@@ -130,20 +121,18 @@ beforeAll(async () => {
   })
 
   app = await buildApp()
-  await app.ready()
 })
 
 afterAll(async () => {
-  await app.close()
   closeDb()
   rmSync(dbDir, { recursive: true, force: true })
 })
 
 describe("GET /health", () => {
   test("reports ok, the last run, and the configured subgraphs", async () => {
-    const res = await app.inject({ method: "GET", url: "/health" })
-    expect(res.statusCode).toBe(200)
-    const body = res.json()
+    const res = await request(app).get("/health")
+    expect(res.status).toBe(200)
+    const body = res.body
     expect(body.ok).toBe(true)
     expect(body.lendingSource).toBe("messari")
     expect(body.lastRun.tokensScored).toBe(2)
@@ -154,89 +143,84 @@ describe("GET /health", () => {
 
 describe("GET /tokens", () => {
   test("defaults to exposure_ratio desc and excludes no_venue tokens", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens" })
-    expect(res.statusCode).toBe(200)
-    const rows = res.json()
+    const res = await request(app).get("/tokens")
+    expect(res.status).toBe(200)
+    const rows = res.body
     expect(rows.map((r: { symbol: string }) => r.symbol)).toEqual(["AAA"])
     expect(rows[0].exposureRatio).toBe(1.5)
   })
 
   test("stamps every response with the live-data block header", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens" })
+    const res = await request(app).get("/tokens")
     expect(res.headers["x-shoalfi-block"]).toBe("21000000")
-    expect(res.headers["x-shoalfi-refreshed-at"]).toBeString()
+    expect(typeof res.headers["x-shoalfi-refreshed-at"]).toBe("string")
   })
 
   test("include_unknown=1 also returns no_venue tokens", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens?include_unknown=1" })
-    const rows = res.json()
+    const res = await request(app).get("/tokens?include_unknown=1")
+    const rows = res.body
     expect(rows.map((r: { symbol: string }) => r.symbol).sort()).toEqual(["AAA", "BBB"])
   })
 
   test("protocol filter narrows to that protocol's markets", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens?protocol=compound-v3&include_unknown=1" })
-    const rows = res.json()
+    const res = await request(app).get("/tokens?protocol=compound-v3&include_unknown=1")
+    const rows = res.body
     expect(rows.map((r: { symbol: string }) => r.symbol)).toEqual(["BBB"])
   })
 
   test("min_exposure_usd filters out smaller exposures", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens?min_exposure_usd=1000000" })
-    const rows = res.json()
+    const res = await request(app).get("/tokens?min_exposure_usd=1000000")
+    const rows = res.body
     expect(rows.map((r: { symbol: string }) => r.symbol)).toEqual(["AAA"])
   })
 
   test("rejects an invalid limit with 400", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens?limit=not-a-number" })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toBe("invalid query")
+    const res = await request(app).get("/tokens?limit=not-a-number")
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe("invalid query")
   })
 })
 
 describe("GET /tokens/:address", () => {
   test("returns the full record for a known token", async () => {
-    const res = await app.inject({ method: "GET", url: `/tokens/${AAA}` })
-    expect(res.statusCode).toBe(200)
-    const body = res.json()
+    const res = await request(app).get(`/tokens/${AAA}`)
+    expect(res.status).toBe(200)
+    const body = res.body
     expect(body.symbol).toBe("AAA")
     expect(body.pools).toHaveLength(1)
     expect(body.markets[0].protocol).toBe("aave-v3")
   })
 
   test("404s on an address with no score", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/tokens/0x9999999999999999999999999999999999999999",
-    })
-    expect(res.statusCode).toBe(404)
+    const res = await request(app).get("/tokens/0x9999999999999999999999999999999999999999")
+    expect(res.status).toBe(404)
   })
 
   test("400s on a malformed address", async () => {
-    const res = await app.inject({ method: "GET", url: "/tokens/not-an-address" })
-    expect(res.statusCode).toBe(400)
+    const res = await request(app).get("/tokens/not-an-address")
+    expect(res.status).toBe(400)
   })
 })
 
 describe("POST /ask", () => {
   test("never 500s: falls back to the default ranking without an Anthropic key", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/ask",
-      payload: { question: "which tokens are most over-lent relative to their liquidity?" },
-    })
-    expect(res.statusCode).toBe(200)
-    const body = res.json()
+    const res = await request(app)
+      .post("/ask")
+      .send({ question: "which tokens are most over-lent relative to their liquidity?" })
+    expect(res.status).toBe(200)
+    const body = res.body
     expect(body.mode).toBe("fallback")
     expect(body.toolCalls).toEqual([])
     expect(body.rows.map((r: { symbol: string }) => r.symbol)).toEqual(["AAA"])
   })
 
   test("rejects a too-short question with 400", async () => {
-    const res = await app.inject({ method: "POST", url: "/ask", payload: { question: "hi" } })
-    expect(res.statusCode).toBe(400)
+    const res = await request(app).post("/ask").send({ question: "hi" })
+    expect(res.status).toBe(400)
   })
 
   test("rejects a missing question with 400", async () => {
-    const res = await app.inject({ method: "POST", url: "/ask", payload: {} })
-    expect(res.statusCode).toBe(400)
+    const res = await request(app).post("/ask").send({})
+    expect(res.status).toBe(400)
   })
 })

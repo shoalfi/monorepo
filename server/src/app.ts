@@ -1,29 +1,27 @@
-import Fastify, { type FastifyInstance } from "fastify"
-import cors from "@fastify/cors"
-import { log, errorMessage } from "./log"
-import { healthRoutes } from "./routes/health"
-import { tokenRoutes } from "./routes/tokens"
-import { askRoutes } from "./routes/ask"
+import express, { type Express } from "express"
+import cors from "cors"
+import { errorHandler } from "./middlewares/error-handler"
+import { healthRouter } from "./routes/health.routes"
+import { tokensRouter } from "./routes/tokens.routes"
+import { askRouter } from "./routes/ask.routes"
+import { metaRouter } from "./routes/meta.routes"
 
-/**
- * Builds the Fastify app with every route registered. Does not listen on a
- * port and does not start the refresh job — callers (index.ts, e2e tests)
- * decide whether and how to run it.
- */
-export async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false })
-  await app.register(cors, {
-    origin: true,
-    exposedHeaders: ["x-shoalfi-block", "x-shoalfi-refreshed-at"],
-  })
-  await app.register(healthRoutes)
-  await app.register(tokenRoutes)
-  await app.register(askRoutes)
+export async function buildApp(): Promise<Express> {
+  const app = express()
+  app.use(
+    cors({
+      origin: true,
+      exposedHeaders: ["x-shoalfi-block", "x-shoalfi-refreshed-at"],
+    })
+  )
+  app.use(express.json())
 
-  app.setErrorHandler((err, _request, reply) => {
-    log.error(`unhandled route error: ${errorMessage(err)}`)
-    void reply.code(500).send({ error: "internal error" })
-  })
+  app.use(healthRouter)
+  app.use(tokensRouter)
+  app.use(askRouter)
+  app.use(metaRouter)
+
+  app.use(errorHandler)
 
   return app
 }

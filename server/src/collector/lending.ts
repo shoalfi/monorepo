@@ -54,6 +54,14 @@ export async function fetchAllMarkets(e: Env = env): Promise<LendingSnapshot> {
           ? fetchMessariMarkets(s.id, s.protocol, e.MIN_MARKET_DEPOSIT_USD)
           : fetchAaveMarkets(s.id, e.MIN_MARKET_DEPOSIT_USD),
       ])
+      if (meta.hasIndexingErrors) {
+        log.warn(`lending source ${s.name} (${s.id}) has indexing errors — its data may be stale or empty`)
+      }
+      if (markets.length === 0) {
+        log.warn(
+          `lending source ${s.name} (${s.id}) returned 0 markets at block ${meta.block} (hasIndexingErrors=${meta.hasIndexingErrors}); check the subgraph id and MIN_MARKET_DEPOSIT_USD=${e.MIN_MARKET_DEPOSIT_USD}`
+        )
+      }
       return { source: s, block: meta.block, markets }
     })
   )

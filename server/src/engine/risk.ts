@@ -17,12 +17,10 @@ import type {
   TokenScore,
 } from "./types"
 
-/** Ratio stored when a token has a real venue but zero absorbable depth. */
 export const RATIO_CAP = 9999
 
 export type TickCache = Map<string, Promise<TickPage>>
 
-/** One tick fetch per (pool, direction, bound) per refresh, shared across tokens. */
 export function cachedTicks(
   cache: TickCache,
   pool: Pool,
@@ -46,7 +44,6 @@ export type Exposure = {
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
 
-/** Upper bound of borrowable USD and the deposit-weighted liquidation threshold. */
 export function exposureFor(markets: Market[]): Exposure {
   let exposureUsd = 0
   let weighted = 0
@@ -107,11 +104,6 @@ function noVenueScore(input: ScoreInput, exposure: Exposure, priceUsd: number): 
   }
 }
 
-/**
- * Score one collateral token: Uniswap v3 sellable depth at SLIPPAGE_BPS,
- * the sell needed to trigger liquidations (price down by 1 - weighted LT),
- * and the buy needed to pump the price by PUMP_TARGET_BPS.
- */
 export async function scoreToken(input: ScoreInput): Promise<TokenScore> {
   const cfg = input.config ?? env
   const { address, markets, ethPriceUsd, cache } = input
@@ -125,8 +117,6 @@ export async function scoreToken(input: ScoreInput): Promise<TokenScore> {
 
   const attackBps = Math.round(exposure.requiredDrop * 10_000)
 
-  // One fetch per pool in the sell direction, to the deeper of the two sell
-  // targets, and one in the buy direction for the pump walk.
   const sellPages = new Map<string, TickPage>()
   const pumpPages = new Map<string, TickPage>()
   await Promise.all(

@@ -1,5 +1,3 @@
-import type { FastifyInstance } from "fastify"
-import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import {
   mcpTools,
@@ -9,12 +7,11 @@ import {
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
+import { z } from "zod"
 import { configuredSubgraphs, env } from "../config"
 import { log, errorMessage } from "../log"
 import { getScores, listScores } from "../db/repo"
 import type { TokenScore } from "../engine/types"
-
-const AskBody = z.object({ question: z.string().trim().min(3).max(1000) })
 
 const MCP_SERVER_NAME = "subgraph"
 const ALLOWED_TOOLS = [
@@ -26,13 +23,14 @@ const ALLOWED_TOOLS = [
 const FALLBACK_ANSWER = "Couldn't process that — showing markets by exposure ratio."
 const MAX_TOKENS = 8192
 
-export type ToolCall = { name: string; argsSummary: string }
+export type ToolCall = { name: string; argsSummary: string; target: string; ms: number | null }
 export type AskMode = "connector" | "client" | "fallback"
 export type AskResponse = {
   answer: string
   rows: TokenScore[]
   toolCalls: ToolCall[]
   mode: AskMode
+  usedMcp: boolean
   error?: string
 }
 
@@ -44,9 +42,6 @@ function getAnthropic(): Anthropic | null {
     : null
   return anthropicClient
 }
-
-// ---------------------------------------------------------------------------
-// Prompt
 
 const money = (n: number | null) => (n === null ? null : Math.round(n))
 
@@ -95,9 +90,6 @@ Answer ranking and comparison questions from the snapshot. When the user asks ab
 Output contract: answer in at most 4 sentences of plain prose. Then output exactly one fenced \`\`\`json block containing {"token_addresses": [...]} with the lowercase addresses of every token you referenced (an empty array if none).`
 }
 
-// ---------------------------------------------------------------------------
-// Response parsing
-
 const AddressList = z.object({
   token_addresses: z.array(z.string().regex(/^0x[0-9a-fA-F]{40}$/)).max(20),
 })
@@ -113,9 +105,7 @@ export function splitAnswer(text: string): { answer: string; addresses: string[]
         const answer = text.replace(c.full, "").trim()
         return { answer, addresses: parsed.data.token_addresses.map((a) => a.toLowerCase()) }
       }
-    } catch {
-      // not JSON, keep looking
-    }
+    } catch {}
   }
   return { answer: text.trim(), addresses: [] }
 }
@@ -130,19 +120,39 @@ function summarizeArgs(input: unknown): string {
   }
 }
 
+function targetFor(name: string, input: unknown): string {
+  const subgraphId =
+    input && typeof input === "object" && "subgraph_id" in input
+      ? String((input as Record<string, unknown>).subgraph_id)
+      : undefined
+  const match = subgraphId ? configuredSubgraphs().find((s) => s.id === subgraphId) : undefined
+  return match?.name ?? subgraphId ?? name
+}
+
 function collect(message: Anthropic.Beta.BetaMessage, toolCalls: ToolCall[]): string {
   let text = ""
   for (const block of message.content) {
     if (block.type === "text") text += block.text
     else if (block.type === "mcp_tool_use" || block.type === "tool_use") {
-      toolCalls.push({ name: block.name, argsSummary: summarizeArgs(block.input) })
+      toolCalls.push({
+        name: block.name,
+        argsSummary: summarizeArgs(block.input),
+        target: targetFor(block.name, block.input),
+        ms: null,
+      })
     }
   }
   return text
 }
 
-// ---------------------------------------------------------------------------
-// Path (a): Messages API MCP connector
+type ToolTiming = { argsKey: string; ms: number }
+
+function applyTimings(toolCalls: ToolCall[], timings: ToolTiming[]): void {
+  for (const call of toolCalls) {
+    const idx = timings.findIndex((t) => t.argsKey === call.argsSummary)
+    if (idx >= 0) call.ms = timings.splice(idx, 1)[0]!.ms
+  }
+}
 
 async function viaConnector(
   anthropic: Anthropic,
@@ -197,9 +207,6 @@ function connectorUnavailable(err: unknown): boolean {
   return false
 }
 
-// ---------------------------------------------------------------------------
-// Path (b): own MCP client + SDK tool runner
-
 async function connectMcp(): Promise<McpClient> {
   const headers = { Authorization: `Bearer ${env.GRAPH_API_KEY}` }
   const httpUrl = new URL(env.SUBGRAPH_MCP_URL.replace(/\/sse\/?$/, "/mcp"))
@@ -231,10 +238,17 @@ async function viaClient(anthropic: Anthropic, system: string, question: string)
   try {
     const { tools } = await mcp.listTools()
     const allowed = tools.filter((t) => (ALLOWED_TOOLS as readonly string[]).includes(t.name))
-    // The MCP SDK's callTool return type still includes a legacy result shape
-    // that mcpTools does not accept; narrow it.
+    const timings: ToolTiming[] = []
     const mcpClientForTools: MCPClientLike = {
-      callTool: (params) => mcp.callTool(params) as Promise<MCPCallToolResultLike>,
+      callTool: async (params) => {
+        const start = performance.now()
+        try {
+          return (await mcp.callTool(params)) as MCPCallToolResultLike
+        } finally {
+          const args = (params as { arguments?: unknown })?.arguments
+          timings.push({ argsKey: summarizeArgs(args), ms: Math.round(performance.now() - start) })
+        }
+      },
     }
     const runner = anthropic.beta.messages.toolRunner({
       model: env.ANTHROPIC_MODEL,
@@ -252,13 +266,12 @@ async function viaClient(anthropic: Anthropic, system: string, question: string)
       text = collect(message, toolCalls)
       stopReason = message.stop_reason
     }
+    applyTimings(toolCalls, timings)
     return { text, toolCalls, stopReason }
   } finally {
     await mcp.close().catch(() => {})
   }
 }
-
-// ---------------------------------------------------------------------------
 
 async function defaultRows(): Promise<TokenScore[]> {
   return listScores({
@@ -270,9 +283,9 @@ async function defaultRows(): Promise<TokenScore[]> {
   })
 }
 
-async function fallbackResponse(reason: string): Promise<AskResponse> {
+export async function fallbackResponse(reason: string): Promise<AskResponse> {
   const rows = await defaultRows().catch(() => [])
-  return { answer: FALLBACK_ANSWER, rows, toolCalls: [], mode: "fallback", error: reason }
+  return { answer: FALLBACK_ANSWER, rows, toolCalls: [], mode: "fallback", usedMcp: false, error: reason }
 }
 
 export async function ask(question: string): Promise<AskResponse> {
@@ -304,21 +317,11 @@ export async function ask(question: string): Promise<AskResponse> {
   const { answer, addresses } = splitAnswer(outcome.text)
   let rows = await getScores(addresses)
   if (rows.length === 0) rows = await defaultRows()
-  return { answer: answer || FALLBACK_ANSWER, rows, toolCalls: outcome.toolCalls, mode }
-}
-
-export async function askRoutes(app: FastifyInstance): Promise<void> {
-  app.post("/ask", async (request, reply) => {
-    const parsed = AskBody.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "invalid body", issues: parsed.error.issues })
-    }
-    try {
-      return reply.send(await ask(parsed.data.question))
-    } catch (err) {
-      const reason = errorMessage(err)
-      log.error(`ask failed: ${reason}`)
-      return reply.send(await fallbackResponse(reason))
-    }
-  })
+  return {
+    answer: answer || FALLBACK_ANSWER,
+    rows,
+    toolCalls: outcome.toolCalls,
+    mode,
+    usedMcp: outcome.toolCalls.length > 0,
+  }
 }

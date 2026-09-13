@@ -13,8 +13,9 @@ try {
 }
 
 const app = await buildApp()
-await app.listen({ port: env.PORT, host: "0.0.0.0" })
-log.info(`shoalfi api listening on :${env.PORT}`)
+const server = app.listen(env.PORT, "0.0.0.0", () => {
+  log.info(`shoalfi api listening on :${env.PORT}`)
+})
 
 void runRefresh("boot")
 const task = cron.schedule(env.REFRESH_CRON, () => {
@@ -26,7 +27,9 @@ async function shutdown(signal: string) {
   log.info(`${signal} received, shutting down`)
   try {
     await task.stop()
-    await app.close()
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()))
+    })
     closeDb()
   } finally {
     process.exit(0)

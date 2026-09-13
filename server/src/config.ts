@@ -1,10 +1,6 @@
 import { z } from "zod"
 import { validate as validateCron } from "node-cron"
 
-/**
- * Strips inline `# comments`, trims, and turns empty strings into `undefined`
- * so that a blank `KEY=` line behaves like a missing key.
- */
 const clean = (value: unknown): unknown => {
   if (typeof value !== "string") return value
   const s = value.replace(/\s+#.*$/, "").trim()
@@ -28,8 +24,6 @@ const EnvSchema = z
       z.url().default("https://subgraphs.mcp.thegraph.com/sse")
     ),
 
-    // Relative paths resolve against the process cwd, i.e. server/ when run via
-    // `bun run --cwd server ...` or the root `dev:server`/`server:start` scripts.
     DATABASE_PATH: z.preprocess(clean, z.string().min(1).default("./data/shoalfi.sqlite")),
 
     UNISWAP_V3_SUBGRAPH_ID: requiredString(),
@@ -95,7 +89,6 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
 
 let cached: Env | undefined
 
-/** Parsed once on first access, so importing a module never fails on a blank .env (tests, scripts). */
 export function getEnv(): Env {
   cached ??= parseEnv()
   return cached
@@ -111,7 +104,6 @@ export const env: Env = new Proxy({} as Env, {
 
 export type SubgraphRef = { name: string; id: string; role: "uniswap" | "lending" }
 
-/** Subgraphs that are configured for the current LENDING_SOURCE, for /health and the probe. */
 export function configuredSubgraphs(e: Env = env): SubgraphRef[] {
   const refs: SubgraphRef[] = [
     { name: "uniswap-v3-ethereum", id: e.UNISWAP_V3_SUBGRAPH_ID, role: "uniswap" },

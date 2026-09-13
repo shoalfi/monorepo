@@ -1,4 +1,5 @@
 import { graphQuery } from "./graph"
+import { log } from "../log"
 import type { Market, Protocol } from "../engine/types"
 
 /**
@@ -42,14 +43,20 @@ export async function fetchMessariMarkets(
   minDepositUsd: number
 ): Promise<Market[]> {
   const markets: Market[] = []
+  let rawTotal = 0
+  let skippedByDeposit = 0
   for (let skip = 0; skip <= MAX_SKIP; skip += PAGE) {
     const data = await graphQuery<{ markets: RawMarket[] }>(subgraphId, QUERY, {
       first: PAGE,
       skip,
     })
+    rawTotal += data.markets.length
     for (const m of data.markets) {
       const depositUsd = Number(m.totalDepositBalanceUSD)
-      if (!Number.isFinite(depositUsd) || depositUsd < minDepositUsd) continue
+      if (!Number.isFinite(depositUsd) || depositUsd < minDepositUsd) {
+        skippedByDeposit++
+        continue
+      }
       markets.push({
         protocol,
         marketId: m.id.toLowerCase(),
@@ -65,6 +72,15 @@ export async function fetchMessariMarkets(
       })
     }
     if (data.markets.length < PAGE) break
+  }
+  if (rawTotal === 0) {
+    log.warn(
+      `messari subgraph ${subgraphId} (${protocol}): the where:{canUseAsCollateral,isActive} filter matched 0 markets — the subgraph itself has no such rows`
+    )
+  } else if (markets.length === 0) {
+    log.warn(
+      `messari subgraph ${subgraphId} (${protocol}): ${rawTotal} eligible markets found, all ${skippedByDeposit} below MIN_MARKET_DEPOSIT_USD=${minDepositUsd}`
+    )
   }
   return markets
 }

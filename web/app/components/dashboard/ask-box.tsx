@@ -17,9 +17,7 @@ const PRESETS = [
 ]
 
 const TIMEOUT_MS = 30_000
-/** The countdown only appears once the wait is long enough to feel like one. */
 const COUNTDOWN_AFTER_MS = 10_000
-/** Tool-call lines appear one at a time so progress is legible on camera. */
 const REVEAL_STEP_MS = 120
 
 export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address: string) => void }) {
@@ -60,13 +58,10 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
       try {
         const result = await postAsk(trimmed, controller.signal)
         setResponse(result)
-        // Stagger the already-complete toolCalls array into view.
         result.toolCalls.forEach((_, index) => {
           timers.current.push(setTimeout(() => setRevealed(index + 1), index * REVEAL_STEP_MS))
         })
       } catch (cause: unknown) {
-        // Timeout and transport failure read the same to the viewer: the
-        // table is unaffected either way.
         void cause
         setError("couldn't reach the model, table below is still live")
       } finally {
@@ -141,7 +136,8 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
           <ul className="space-y-1">
             {response.toolCalls.slice(0, revealed).map((call, index) => (
               <li key={`${call.tool}-${call.target}-${index}`} className="font-mono text-xs text-muted-foreground">
-                querying {prettySource(call.target)} {call.tool === "subgraph_query" ? "subgraph" : call.tool}… {call.ms}ms
+                querying {prettySource(call.target)} {call.tool === "subgraph_query" ? "subgraph" : call.tool}…{" "}
+                {call.ms === null ? "" : `${call.ms}ms`}
               </li>
             ))}
           </ul>

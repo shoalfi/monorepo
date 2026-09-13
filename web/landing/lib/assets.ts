@@ -10,7 +10,10 @@ function firstExisting(candidates: string[]) {
 
 export function getAssets() {
   return {
-    demoVideo: process.env.NEXT_PUBLIC_DEMO_VIDEO_URL ?? firstExisting(["videos/demo.mp4", "videos/demo.webm"]),
+    demoVideo:
+      process.env.NEXT_PUBLIC_DEMO_VIDEO_URL ??
+      firstExisting(["videos/demo.mp4", "videos/demo.webm"]) ??
+      "https://youtu.be/th3Qm4krXaY",
   }
 }
 

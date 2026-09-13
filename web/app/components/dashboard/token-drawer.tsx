@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/dashboard/states"
 import { explorerAddressUrl, getToken, marketUrl } from "@/lib/api"
 import { DASH, compactUsd, feeTier, percent, priceUsd, ratio as fmtRatio, prettySource, truncateAddress } from "@/lib/format"
 import type { TokenDetail } from "@/lib/types"
+import { useMeta } from "@/lib/use-meta"
 import { Spinner } from "@/components/ui/spinner"
 
 function CopyButton({ value }: { value: string }) {
@@ -21,9 +22,7 @@ function CopyButton({ value }: { value: string }) {
           await navigator.clipboard.writeText(value)
           setCopied(true)
           setTimeout(() => setCopied(false), 1200)
-        } catch {
-          // Clipboard can be blocked; failing silently beats a toast on camera.
-        }
+        } catch {}
       }}
       className="text-muted-foreground transition-colors duration-100 hover:text-foreground"
     >
@@ -50,7 +49,7 @@ function LedgerRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function TheMath({ token }: { token: TokenDetail }) {
+function TheMath({ token, safeCapFraction }: { token: TokenDetail; safeCapFraction: number | null }) {
   const [open, setOpen] = useState(false)
   return (
     <div>
@@ -67,7 +66,7 @@ function TheMath({ token }: { token: TokenDetail }) {
         <div className="mt-3 space-y-4">
           <div>
             <LedgerRow label="sellable (10% move)" value={compactUsd(token.depth.sellableUsd10pct)} />
-            <LedgerRow label="× 30%" value="safe cap fraction" />
+            <LedgerRow label={`× ${safeCapFraction === null ? DASH : percent(safeCapFraction)}`} value="safe cap fraction" />
             <LedgerRow label="= safe cap" value={compactUsd(token.safeCapUsd)} />
           </div>
           <div>
@@ -87,9 +86,9 @@ function TheMath({ token }: { token: TokenDetail }) {
 export function TokenDrawer({ address, onClose }: { address: string; onClose: () => void }) {
   const [token, setToken] = useState<TokenDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { meta } = useMeta()
+  const safeCapFraction = meta?.capFraction ?? null
 
-  // The parent keys this component by address, so a different token remounts
-  // it with fresh state rather than resetting state from inside the effect.
   useEffect(() => {
     const controller = new AbortController()
     getToken(address, controller.signal)
@@ -110,8 +109,6 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
 
   useEffect(() => {
     document.addEventListener("keydown", handleKey)
-    // Lock the page behind the drawer so a scroll gesture on camera moves the
-    // drawer, not the table underneath it.
     const previous = document.body.style.overflow
     document.body.style.overflow = "hidden"
     return () => {
@@ -185,7 +182,6 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
 
         {token ? (
           <>
-            {/* The backend writes this sentence. We never synthesise one. */}
             <div className="px-5 pb-5">
               {token.summary ? (
                 <p className="text-lg leading-relaxed text-balance">{token.summary}</p>
@@ -199,7 +195,10 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
                 <LedgerRow label="price" value={priceUsd(token.priceUsd)} />
                 <LedgerRow label="ratio" value={fmtRatio(token.ratio)} />
                 <LedgerRow label="sellable (10% move)" value={compactUsd(token.depth.sellableUsd10pct)} />
-                <LedgerRow label="safe cap (30%)" value={compactUsd(token.safeCapUsd)} />
+                <LedgerRow
+                  label={`safe cap (${safeCapFraction === null ? DASH : percent(safeCapFraction)})`}
+                  value={compactUsd(token.safeCapUsd)}
+                />
                 <LedgerRow label="lent against it" value={compactUsd(token.exposure.exposureUsd)} />
                 <LedgerRow
                   label={
@@ -294,7 +293,7 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
             </Section>
 
             <section className="border-t border-b border-border px-5 py-5">
-              <TheMath token={token} />
+              <TheMath token={token} safeCapFraction={safeCapFraction} />
             </section>
           </>
         ) : null}
