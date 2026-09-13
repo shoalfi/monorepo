@@ -15,7 +15,7 @@ export function Hero() {
         </Reveal>
         <Reveal delay={0.08}>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-            shoalfi publishes how much of a token can really be sold, and caps borrowing to that number.
+            shoalfi publishes how much of a token can really be sold, and ranks every market by how much has been lent against it.
           </p>
         </Reveal>
         <Reveal delay={0.14}>

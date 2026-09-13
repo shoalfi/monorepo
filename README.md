@@ -7,7 +7,7 @@ For every token that Aave v3 and Compound v3 accept as collateral, shoalfi asks:
 if a protocol had to sell this collateral today, what would it actually get?
 
 This document covers the backend API and Foundry contracts: the JSON API, the
-natural-language `/ask` endpoint, and the `CapSteward` contract stub, all built
+natural-language `/ask` endpoint, and the `CapSteward` contract, all built
 and verified as part of this work. Every number is fetched live from The Graph
 Network at request time or on a five-minute refresh; there is no mocked,
 cached, or fixture data on any code path. The repository also contains a
@@ -41,27 +41,17 @@ The 10%, 30%, 2× and $5M thresholds are `SLIPPAGE_BPS`, `CAP_FRACTION`,
 
 ## How it works
 
-```
-The Graph Network (Subgraph Studio API key)
- ├─ Messari standardized lending subgraphs  ─┐
- │    aave-v3-ethereum, compound-v3-ethereum │   server/src/collector/lending*.ts
- │    (optional: morpho-blue-ethereum)       ├──► Market[] (token, deposits, LTV, LT)
- └─ Uniswap v3 Ethereum subgraph ────────────┘   server/src/collector/uniswap.ts
-      bundle, pools, ticks                    ──► Pool[], Tick[]
-                                                      │
-                          server/src/engine/depth.ts  ▼  tick walk (v3-sdk math)
-                          server/src/engine/risk.ts   ▼  exposure, ratio, attack costs
-                                                      │
-                                 SQLite file in server/data/ (token_scores, refresh_runs)
-                                                      │
-                        Fastify: GET /health  GET /tokens  GET /tokens/:address
-                                 POST /ask ──► Claude + The Graph Subgraph MCP
-                                               (live subgraph queries on demand)
-```
+![shoalfi architecture: Messari lending subgraphs and the Uniswap v3 subgraph feed the collectors, the depth and risk engines write a SQLite file, and Fastify serves it over /health, /tokens and /ask, with /ask reaching Claude and The Graph Subgraph MCP for live subgraph queries](docs/architecture.png)
 
-A refresh runs on boot and then on `REFRESH_CRON` (every five minutes by default).
-Each run fetches every collateral market, walks the top Uniswap v3 pools for
-every distinct collateral token, and upserts one row per token.
+The diagram shows every lending source the collectors support. What is actually
+configured on the deployed API today is the Uniswap v3 subgraph plus **Compound
+v3 and Morpho Blue** (36 and 214 markets); the Messari Aave v3 subgraph is
+reachable but returns no markets, so it is switched off rather than left to
+contribute nothing. `GET /health` always reports the live list.
+
+A refresh runs on boot and then on `REFRESH_CRON`. Each run fetches every
+collateral market, walks the top Uniswap v3 pools for every distinct collateral
+token, and upserts one row per token.
 
 ## The Graph integration
 
@@ -103,8 +93,8 @@ anything fails it still returns 200 with the default ranking (`mode: "fallback"`
 
 Track: **Best AI Tooling or AI Use Case with The Graph (From Scratch)**. The
 build also matches the composable track's description (standardized lending
-schema across protocols plus a layered MCP); whether one project may enter both
-is pending confirmation from The Graph.
+schema across protocols plus a layered MCP), but this project is entered in the
+AI Tooling / AI Use Case (From Scratch) track only.
 
 ## Uniswap integration
 
@@ -172,12 +162,75 @@ including the scanner frontend — can show exactly how live the data is.
 
 ### Hosted API
 
-Not deployed yet. `railway.json` and `nixpacks.toml` describe the Railway
-deployment (Bun, `bun run --cwd server start`, `/health` check); the Graph key
-stays server-side. Because storage is a local SQLite file, the Railway service
-needs a volume mounted at `server/data` (Railway dashboard → Volumes) so scores
-survive a redeploy; without one every deploy starts with an empty database and
-just rebuilds it on the next refresh. The URL will be added here once it is live.
+| | |
+| --- | --- |
+| API | <https://api.shoalfi.xyz> |
+| Health | <https://api.shoalfi.xyz/health> |
+| CapSteward (Sepolia) | [`0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E`](https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E) |
+| DepthOracle (Sepolia) | [`0x4655a18d3b3cF9644B90f633dbA030EAB12FF167`](https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167) |
+| Scanner | see `NEXT_PUBLIC_API_BASE` in [web/app/.env.example](web/app/.env.example) |
+
+Deployed on Railway (Bun, `bun run --cwd server start`, `/health` check); the
+Graph key stays server-side. Because storage is a local SQLite file, the Railway
+service needs a volume mounted at `server/data` (Railway dashboard → Volumes) so
+scores survive a redeploy; without one every deploy starts with an empty
+database and rebuilds it on the next refresh.
+
+Every `/tokens` response carries the block the numbers were computed at:
+
+```sh
+curl -si "https://api.shoalfi.xyz/tokens?limit=1" \
+  | grep -i '^x-shoalfi'
+# x-shoalfi-block: 25963732
+# x-shoalfi-refreshed-at: 2026-09-12T20:30:16.697Z
+```
+
+## Bounty eligibility
+
+Every claim below links to the exact code at commit
+[`e9ce999`](https://github.com/shoalfi/monorepo/tree/e9ce999976fda64fc353118bdf609fb1234e0b05). Permalinks are pinned to that
+commit, so line numbers stay correct as the repo moves on.
+
+### The Graph — Best AI Tooling / AI Use Case (From Scratch)
+
+Two Graph products, composed.
+
+| Claim | Code |
+| --- | --- |
+| Gateway client for The Graph Network (auth, timeout, retry, empty-data guard) | [`collector/graph.ts#L34`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/graph.ts#L34) |
+| One query covers Aave v3, Compound v3 and Morpho Blue because the Messari lending schema is shared; only the subgraph ID changes | [`collector/lending.messari.ts#L22-L76`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.messari.ts#L22-L76) |
+| Fallback collector for the official Aave subgraph, whose field names and units differ | [`collector/lending.aave.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.aave.ts) |
+| Multi-source fan-out: failures are isolated per subgraph, a partial result still scores | [`collector/lending.ts#L44-L80`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/lending.ts#L44-L80) |
+| **Subgraph MCP** attached to the Anthropic Messages API, allowlisting `execute_query_by_subgraph_id`, `get_schema_by_subgraph_id`, `search_subgraphs_by_keyword` | [`routes/ask.ts#L165-L175`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/routes/ask.ts#L165-L175) |
+| Client-side MCP fallback when the hosted connector is unavailable | [`routes/ask.ts#L205-L220`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/routes/ask.ts#L205-L220) |
+| Every MCP call the model made is returned to the client as `toolCalls`, and the UI only shows the MCP badge when that array is non-empty | [`ask-box.tsx#L80-L92`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/ask-box.tsx#L80-L92) |
+| Subgraph health probe that writes `docs/data-sources.md` | [`scripts/probe.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/scripts/probe.ts) |
+
+### Uniswap
+
+Depth is computed from tick liquidity, not approximated from TVL or volume.
+
+| Claim | Code |
+| --- | --- |
+| `@uniswap/v3-sdk` `TickMath` and `SqrtPriceMath` drive the math | [`engine/depth.ts#L1-L20`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L1-L20) |
+| Price move → target tick | [`engine/depth.ts#L26`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L26) |
+| Sell and pump direction selection (which token flows in) | [`engine/depth.ts#L46-L60`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L46-L60) |
+| The tick walk: crosses initialized ticks, adjusts liquidity by `liquidityNet`, marks `truncated` at the page cap | [`engine/depth.ts#L80`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L80) |
+| Per-token sellable depth, summed across pools | [`engine/depth.ts#L153`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L153) |
+| Pump cost, valuing the quote token spent | [`engine/depth.ts#L196`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/depth.ts#L196) |
+| Pools and cursor-paginated ticks from the Uniswap v3 subgraph | [`collector/uniswap.ts#L78`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/uniswap.ts#L78), [`#L109`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/collector/uniswap.ts#L109) |
+| Walker checked against closed-form single-range formulas, both directions | [`test/depth.test.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/test/depth.test.ts) |
+| Developer feedback write-up | [`FEEDBACK.md`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/FEEDBACK.md) |
+
+### What the numbers become
+
+| Claim | Code / link |
+| --- | --- |
+| `safeCapUsd = sellableDepthUsd × 0.30`, `exposureRatio = exposureUsd ÷ safeCapUsd` | [`engine/risk.ts#L63-L72`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/server/src/engine/risk.ts#L63-L72) |
+| Risk bands are derived in the browser and the rule is printed on the page, because the API returns no risk field | [`lib/api.ts`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/lib/api.ts), [`footnote.tsx`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/footnote.tsx) |
+| `no_venue` tokens are excluded from the ranking rather than scored as safe | [`token-table.tsx`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/web/app/components/dashboard/token-table.tsx) |
+| On-chain cap, deployed and verified on Sepolia | [`CapSteward.sol`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/contracts/src/CapSteward.sol) · [Etherscan](https://sepolia.etherscan.io/address/0x7Ec8Ee63f9eE8C9Fc1F6aC126575adf0E3e6431E) |
+| Keeper-written depth oracle it reads from | [`DepthOracle.sol`](https://github.com/shoalfi/monorepo/blob/e9ce999976fda64fc353118bdf609fb1234e0b05/contracts/src/DepthOracle.sol) · [Etherscan](https://sepolia.etherscan.io/address/0x4655a18d3b3cF9644B90f633dbA030EAB12FF167) |
 
 ## Known simplifications
 
@@ -190,67 +243,28 @@ just rebuilds it on the next refresh. The URL will be added here once it is live
   (depth unknown), not as zero depth, and are excluded from the ratio ranking
   unless `include_unknown=1` is passed.
 - **Ethereum mainnet only.**
+- **Data freshness.** Every number comes from the block reported in
+  `x-shoalfi-block`; the refresh job re-runs on `REFRESH_CRON`, so a row is at
+  most one refresh interval old.
 - **Depth is valued at the pre-move price**, which slightly overstates USD proceeds.
 - **Ticks are capped** at `MAX_TICK_PAGES_PER_POOL × 1000` per pool per direction;
   when the cap is hit the remaining range is extrapolated with the last known
   liquidity and the row is marked `truncated`.
 
-## Roadmap
-
-- **CapSteward** ([contracts/](contracts/README.md)): an on-chain cap that turns a
-  signed depth snapshot into `maxBorrowableUsd(token)`; compiled and tested,
-  not deployed.
-- Multi-chain (Base first) and Uniswap v4 pools; for MAMO-style tokens the label
-  must say which venues are included, since MAMO's liquidity was split between
-  Aerodrome Slipstream and Uniswap v4.
-- Curve and Balancer depth for LSTs and stablecoins.
-- A Chainlink CRE confidential workflow that applies private per-protocol
-  thresholds to the public depth feed.
-
-## AI tools used
-
-Every file in `server/`, `contracts/` (except the vendored `contracts/lib/forge-std`),
-and this README's backend/contracts content was written with Claude Code
-(Claude Sonnet 5 and Claude Fable 5.1) working from a written specification,
-with the tick-walk math, subgraph field names, and Anthropic API shapes
-verified against primary sources during implementation. Human review covered
-the spec, the design decisions recorded in the commit history, and the
-acceptance checks (probe output, WETH depth sanity check, unit, e2e, and
-Foundry tests). `web/app` and `web/landing` are maintained separately by the
-team; see their own READMEs for their own AI-tool disclosure, if any.
-
 ## Sources
 
 - The Defiant, Moonwell / MAMO: <https://thedefiant.io/news/hacks/moonwell-loses-8-7-million-to-mamo-price-manipulation-on-base>
+- Moonwell post-mortem (source of the $11,028,762 borrowed figure): <https://forum.moonwell.fi/t/post-mortem-mamo-market-incident-on-base/2208>
+- CryptoTicker, Moonwell / MAMO: <https://cryptoticker.io/en/moonwell-mamo-oracle-exploit-base/>
+- CoinDesk, Tectonic / Cronos halt: <https://www.coindesk.com/tech/2026/08/31/cronos-halts-blockchain-after-usd75-million-lending-exploit-hits-lending-app-tectonic>
+- CryptoTimes, Tectonic / 100x TONIC pump: <https://www.cryptotimes.io/2026/08/31/cronos-halts-entire-blockchain-after-75m-tectonic-exploit-only-6m-escapes/>
+- CryptoTicker, Tectonic / Cronos chain halt: <https://cryptoticker.io/en/cronos-chain-halt-tectonic-exploit/>
 - Crypto Briefing, Morpho / PT-reUSD trigger: <https://cryptobriefing.com/morpho-liquidations-pendle-reusd-cascade/>
 - CryptoTimes, Morpho TWAP exploit: <https://www.cryptotimes.io/2026/08/25/morphos-15-minute-twap-oracle-exploited-in-36-4m-liquidation-attack/>
 - CryptoDaily, Morpho market and pool figures: <https://cryptodaily.co.uk/2026/08/pt-reusd-morpho-liquidations-36m>
 - The Graph, Subgraph MCP: <https://thegraph.com/docs/en/subgraphs/subgraph-mcp/introduction/>
 - Anthropic, MCP connector: <https://platform.claude.com/docs/en/agents-and-tools/mcp-connector>
 - Uniswap v3 SDK: <https://docs.uniswap.org/sdk/v3/overview>
-
-## Repository layout and provenance
-
-```text
-shoalfi/
-├── web/
-│   ├── landing/  # Landing frontend (Next.js + coss ui)
-│   └── app/      # Scanner and red-team frontend (Next.js + coss ui)
-├── server/       # Bun + Fastify API, collectors, depth engine, refresh job, tests
-├── contracts/    # Foundry: CapSteward roadmap contract, tests, deploy script
-├── docs/         # data-sources.md (generated by the probe), mamo-case-study.md
-├── demo/         # Forked-market replay and red-team scripts
-├── deployments/  # Deployed addresses and transaction IDs
-├── package.json  # Bun workspaces and root commands
-├── bun.lock
-└── README.md
-```
-
-This repository's first commits (2026-09-06) scaffolded an unrelated idea
-("Rivlet"). It was rebranded in place rather than restarted: the frontend
-(`web/app`, `web/landing`) was renamed and rebuilt for shoalfi by the team,
-and the backend, contracts, and docs described in this README were built
-separately and merged in alongside it.
 
 ## License
 

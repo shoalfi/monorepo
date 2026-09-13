@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({subsets:['latin'],variable:'--font-mono'})
 
 const title = "shoalfi: executable liquidity oracle for lending markets"
 const description =
-  "oracle for how much of a token can actually be sold, plus a plug-in that caps borrowing to it. stops the pump-and-borrow attack."
+  "oracle for how much of a token can actually be sold, and how much has been lent against it. finds the collateral behind the pump-and-borrow attack."
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://app.shoalfi.xyz"),

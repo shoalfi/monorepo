@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "lastRun": {
+    "startedAt": "2026-09-13T09:40:55.000Z",
+    "finishedAt": "2026-09-13T09:41:00.000Z",
+    "durationMs": 5000,
+    "lendingSource": "messari",
+    "marketCounts": {
+      "compound-v3": 12
+    },
+    "ethPriceUsd": 2522.57,
+    "uniswapBlock": 25963542,
+    "lendingBlock": 25963542,
+    "tokensTotal": 12,
+    "tokensScored": 12,
+    "tokensFailed": 0,
+    "notes": null
+  },
+  "lendingSource": "messari",
+  "subgraphs": [
+    {
+      "name": "uniswap-v3-ethereum",
+      "id": "fixture"
+    },
+    {
+      "name": "messari-compound-v3-ethereum",
+      "id": "fixture"
+    }
+  ],
+  "uptimeSec": 1234
+}

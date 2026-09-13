@@ -6,6 +6,9 @@ const FORCE_FIXTURES = process.env.NEXT_PUBLIC_USE_FIXTURES === "true"
 
 export const usingFixtures: boolean = FORCE_FIXTURES || API_BASE === ""
 
+/** Matches RATIO_CAP in server/src/engine/risk.ts. */
+export const RATIO_CAP = 9999
+
 export class ApiError extends Error {
   readonly status: number | null
 
@@ -16,7 +19,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<{ data: T; response: Response }> {
   const url = usingFixtures ? path : `${API_BASE}${path}`
   let response: Response
   try {
@@ -34,7 +37,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message, response.status)
   }
   try {
-    return (await response.json()) as T
+    return { data: (await response.json()) as T, response }
   } catch {
     throw new ApiError(`${path} returned a response that was not json`)
   }
@@ -62,7 +65,8 @@ export async function getTokens(signal?: AbortSignal): Promise<Token[]> {
   return scores.map((score) => toToken(score, meta))
 }
 
-export async function getToken(address: string, signal?: AbortSignal): Promise<TokenDetail> {
+/** /tokens/:address returns the same TokenScore shape; there is no detail type. */
+export async function getToken(address: string, signal?: AbortSignal): Promise<TokenScore> {
   if (!usingFixtures) {
     const [score, meta] = await Promise.all([
       request<TokenScoreDTO>(`/tokens/${address}`, { signal }),
@@ -71,18 +75,20 @@ export async function getToken(address: string, signal?: AbortSignal): Promise<T
     return toTokenDetail(score, meta)
   }
   try {
-    return await request<TokenDetail>(`/fixtures/token-${address.toLowerCase()}.json`, { signal })
+    const { data } = await request<TokenScore>(`/fixtures/token-${address.toLowerCase()}.json`, { signal })
+    return data
   } catch {
     const tokens = await getTokens(signal)
-    const token = tokens.find((candidate) => candidate.address.toLowerCase() === address.toLowerCase())
+    const token = tokens.find((candidate) => candidate.tokenAddress.toLowerCase() === address.toLowerCase())
     if (!token) throw new ApiError(`no fixture for token ${address}`)
-    return { ...token, pools: [], summary: null }
+    return token
   }
 }
 
 export async function postAsk(question: string, signal?: AbortSignal): Promise<AskResponse> {
   if (usingFixtures) {
-    return request<AskResponse>("/fixtures/ask.json", { signal })
+    const { data } = await request<AskResponse>("/fixtures/ask.json", { signal })
+    return data
   }
   const raw = await request<AskResponseDTO>("/ask", {
     method: "POST",

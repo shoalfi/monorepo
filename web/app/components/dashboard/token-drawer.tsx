@@ -51,6 +51,7 @@ function LedgerRow({ label, value }: { label: string; value: string }) {
 
 function TheMath({ token, safeCapFraction }: { token: TokenDetail; safeCapFraction: number | null }) {
   const [open, setOpen] = useState(false)
+  const depositTotal = token.markets.reduce((sum, market) => sum + market.depositUsd, 0)
   return (
     <div>
       <button
@@ -70,12 +71,12 @@ function TheMath({ token, safeCapFraction }: { token: TokenDetail; safeCapFracti
             <LedgerRow label="= safe cap" value={compactUsd(token.safeCapUsd)} />
           </div>
           <div>
-            <LedgerRow label="deposits" value={compactUsd(token.exposure.depositsUsd)} />
-            <LedgerRow label="× max ltv" value={percent(token.exposure.maxLtv)} />
-            <LedgerRow label="= lent against it" value={compactUsd(token.exposure.exposureUsd)} />
+            <LedgerRow label="Σ deposits across markets" value={compactUsd(depositTotal)} />
+            <LedgerRow label="× max ltv (per market)" value="" />
+            <LedgerRow label="= lent against it" value={compactUsd(token.exposureUsd)} />
           </div>
           <div>
-            <LedgerRow label="lent against it ÷ sellable" value={fmtRatio(token.ratio)} />
+            <LedgerRow label="lent against it ÷ safe cap" value={fmtRatio(token.exposureRatio)} />
           </div>
         </div>
       ) : null}
@@ -84,7 +85,7 @@ function TheMath({ token, safeCapFraction }: { token: TokenDetail; safeCapFracti
 }
 
 export function TokenDrawer({ address, onClose }: { address: string; onClose: () => void }) {
-  const [token, setToken] = useState<TokenDetail | null>(null)
+  const [token, setToken] = useState<TokenScore | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { meta } = useMeta()
   const safeCapFraction = meta?.capFraction ?? null
@@ -119,12 +120,7 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <button
-        type="button"
-        aria-label="close"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60"
-      />
+      <button type="button" aria-label="close" onClick={onClose} className="absolute inset-0 bg-black/60" />
       <aside
         role="dialog"
         aria-modal="true"
@@ -137,14 +133,13 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
               <>
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-xl font-medium tracking-tight">{token.symbol}</h2>
-                  <RiskPill risk={token.risk} />
+                  <RiskPill risk={deriveRisk(token)} />
                 </div>
-                <p className="mt-0.5 truncate text-sm text-muted-foreground">{token.name}</p>
                 <div className="mt-2 flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                  <span>{truncateAddress(token.address)}</span>
-                  <CopyButton value={token.address} />
+                  <span>{truncateAddress(token.tokenAddress)}</span>
+                  <CopyButton value={token.tokenAddress} />
                   <a
-                    href={explorerAddressUrl(token.address)}
+                    href={explorerAddressUrl(token.tokenAddress)}
                     target="_blank"
                     rel="noreferrer"
                     aria-label="view on etherscan"
@@ -153,6 +148,9 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
                     <ExternalLink className="size-3.5" />
                   </a>
                 </div>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                  {token.depthStatus} · computed {utcTime(token.computedAt)}
+                </p>
               </>
             ) : (
               <h2 className="font-mono text-sm text-muted-foreground">loading…</h2>
@@ -213,7 +211,7 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
 
             <Section title="pools">
               {token.pools.length === 0 ? (
-                <p className="font-mono text-sm text-muted-foreground">{DASH} no pools returned</p>
+                <p className="font-mono text-sm text-muted-foreground">{DASH} no uniswap v3 pools found</p>
               ) : (
                 <table className="w-full text-left text-sm">
                   <thead>
@@ -221,30 +219,30 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
                       <th className="py-2 font-normal">pair</th>
                       <th className="py-2 text-right font-normal">fee</th>
                       <th className="py-2 text-right font-normal">tvl</th>
-                      <th className="py-2 text-right font-normal">sellable 10%</th>
+                      <th className="py-2 text-right font-normal">depth</th>
+                      <th className="py-2 text-right font-normal">dir</th>
                     </tr>
                   </thead>
                   <tbody>
                     {token.pools.map((pool) => (
-                      <tr key={pool.pool} className="border-b border-border last:border-b-0">
+                      <tr key={`${pool.poolId}-${pool.direction}`} className="border-b border-border last:border-b-0">
                         <td className="py-2">
                           <a
-                            href={explorerAddressUrl(pool.pool)}
+                            href={explorerAddressUrl(pool.poolId)}
                             target="_blank"
                             rel="noreferrer"
                             className="underline decoration-dotted underline-offset-4 hover:decoration-solid"
                           >
                             {pool.pair}
                           </a>
-                          <span className="ml-2 font-mono text-xs text-muted-foreground">
-                            {prettySource(pool.venue)}
-                          </span>
                         </td>
                         <td className="py-2 text-right font-mono tabular-nums">{feeTier(pool.feeTier)}</td>
                         <td className="py-2 text-right font-mono tabular-nums">{compactUsd(pool.tvlUsd)}</td>
                         <td className="py-2 text-right font-mono tabular-nums">
-                          {compactUsd(pool.sellableUsd10pct)}
+                          {pool.truncated ? "~" : ""}
+                          {compactUsd(pool.depthUsd)}
                         </td>
+                        <td className="py-2 text-right font-mono text-xs text-muted-foreground">{pool.direction}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -259,11 +257,10 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border font-mono text-xs text-muted-foreground">
-                      <th className="py-2 font-normal">protocol</th>
-                      <th className="py-2 text-right font-normal">ltv</th>
-                      <th className="py-2 text-right font-normal">liq. threshold</th>
+                      <th className="py-2 font-normal">market</th>
                       <th className="py-2 text-right font-normal">deposits</th>
-                      <th className="py-2 text-right font-normal">borrows</th>
+                      <th className="py-2 text-right font-normal">max ltv</th>
+                      <th className="py-2 text-right font-normal">liq. threshold</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -276,15 +273,17 @@ export function TokenDrawer({ address, onClose }: { address: string; onClose: ()
                             rel="noreferrer"
                             className="underline decoration-dotted underline-offset-4 hover:decoration-solid"
                           >
-                            {prettySource(market.protocol)}
+                            {market.marketName ?? prettySource(market.protocol)}
                           </a>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {prettySource(market.protocol)}
+                          </div>
                         </td>
-                        <td className="py-2 text-right font-mono tabular-nums">{percent(market.ltv)}</td>
+                        <td className="py-2 text-right font-mono tabular-nums">{compactUsd(market.depositUsd)}</td>
+                        <td className="py-2 text-right font-mono tabular-nums">{percent(market.maxLtv)}</td>
                         <td className="py-2 text-right font-mono tabular-nums">
                           {percent(market.liquidationThreshold)}
                         </td>
-                        <td className="py-2 text-right font-mono tabular-nums">{compactUsd(market.depositsUsd)}</td>
-                        <td className="py-2 text-right font-mono tabular-nums">{compactUsd(market.borrowsUsd)}</td>
                       </tr>
                     ))}
                   </tbody>

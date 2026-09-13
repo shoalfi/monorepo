@@ -6,13 +6,30 @@ import { RiskPill } from "@/components/dashboard/pills"
 import { useTooltip } from "@/components/dashboard/use-tooltip"
 import { useMeta } from "@/lib/use-meta"
 import { compactUsd, percent, priceUsd, ratio as fmtRatio } from "@/lib/format"
-import type { Token } from "@/lib/types"
+import type { RiskLevel, TokenScore } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-export type SortKey = "symbol" | "price" | "sellable" | "safeCap" | "exposure" | "ratio" | "attackCost" | "risk"
+export type SortKey =
+  | "symbol"
+  | "price"
+  | "sellable"
+  | "safeCap"
+  | "exposure"
+  | "ratio"
+  | "dumpCost"
+  | "pumpCost"
+  | "risk"
 export type SortDir = "asc" | "desc"
 
-const RISK_ORDER: Record<string, number> = { red: 3, amber: 2, green: 1, unknown: 0 }
+const RISK_ORDER: Record<RiskLevel, number> = { red: 3, amber: 2, green: 1, unknown: 0 }
+
+const TIP_SELLABLE = "usd you could sell on uniswap v3 before price moves 10%"
+const TIP_SAFE_CAP = "30% of sellable depth. the most a market should be willing to lend against this token."
+const TIP_RATIO = "lent against it ÷ safe cap. above 1 means more is lent than the safe cap allows."
+const TIP_DUMP =
+  "usd of the token that must be sold to push its price down by the deposit-weighted liquidation threshold gap (the morpho pattern)"
+const TIP_PUMP = "usd of quote tokens needed to double the price (the moonwell pattern)"
+const TIP_TRUNCATED = "tick walk hit the page cap; remainder extrapolated"
 
 function columns(safeCapFraction: number | null): { key: SortKey; label: string; tip?: string; numeric: boolean }[] {
   return [
@@ -37,24 +54,26 @@ function columns(safeCapFraction: number | null): { key: SortKey; label: string;
   ]
 }
 
-function valueFor(token: Token, key: SortKey): number | string | null {
+function valueFor(token: TokenScore, key: SortKey): number | string | null {
   switch (key) {
     case "symbol":
       return token.symbol
     case "price":
       return token.priceUsd
     case "sellable":
-      return token.depth.sellableUsd10pct
+      return token.sellableDepthUsd
     case "safeCap":
       return token.safeCapUsd
     case "exposure":
-      return token.exposure.exposureUsd
+      return token.exposureUsd
     case "ratio":
-      return token.ratio
-    case "attackCost":
-      return token.attackCost?.costUsd ?? null
+      return token.exposureRatio
+    case "dumpCost":
+      return token.liquidationAttackCostUsd
+    case "pumpCost":
+      return token.pumpCostUsd
     case "risk":
-      return RISK_ORDER[token.risk] ?? 0
+      return RISK_ORDER[deriveRisk(token)]
   }
 }
 
@@ -79,26 +98,22 @@ export function sortTokens(tokens: Token[], key: SortKey, dir: SortDir) {
   }
 }
 
-function attackCostTip(token: Token): string | null {
-  if (!token.attackCost) return null
-  return `capital needed to move price ${percent(token.attackCost.movePct)} in the ${token.attackCost.direction} direction, computed from pool ticks`
-}
-
 function Row({
   token,
   onSelect,
   big,
   tip,
 }: {
-  token: Token
-  onSelect: (token: Token) => void
+  token: TokenScore
+  onSelect: (token: TokenScore) => void
   big: boolean
   tip: (text: string) => Record<string, unknown>
 }) {
-  const costTip = attackCostTip(token)
+  const risk = deriveRisk(token)
+  const capped = token.exposureRatio !== null && token.exposureRatio >= RATIO_CAP
   return (
     <tr
-      data-risk={token.risk}
+      data-risk={risk}
       onClick={() => onSelect(token)}
       tabIndex={0}
       onKeyDown={(event) => {
@@ -114,32 +129,60 @@ function Row({
       )}
     >
       <td className="px-4 py-3">
-        <div className="font-medium tracking-tight">{token.symbol}</div>
-        <div className="truncate text-xs text-muted-foreground">{token.name}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium tracking-tight">{token.symbol}</span>
+          {token.error ? (
+            <span
+              {...tip(`last refresh failed for this token: ${token.error}`)}
+              className="cursor-help rounded-full border border-warning/40 px-1.5 font-mono text-[10px] text-warning-foreground"
+            >
+              stale
+            </span>
+          ) : null}
+        </div>
+        <div className="truncate font-mono text-xs text-muted-foreground">{token.protocols.join(", ") || "—"}</div>
       </td>
       <td className="px-4 py-3 text-right font-mono tabular-nums">{priceUsd(token.priceUsd)}</td>
-      <td className="px-4 py-3 text-right font-mono tabular-nums">{compactUsd(token.depth.sellableUsd10pct)}</td>
+      <td className="px-4 py-3 text-right font-mono tabular-nums">
+        {token.truncated && token.sellableDepthUsd !== null ? (
+          <span {...tip(TIP_TRUNCATED)} className="cursor-help underline decoration-dotted underline-offset-4">
+            ~{compactUsd(token.sellableDepthUsd)}
+          </span>
+        ) : (
+          compactUsd(token.sellableDepthUsd)
+        )}
+      </td>
       <td className="px-4 py-3 text-right font-mono tabular-nums">{compactUsd(token.safeCapUsd)}</td>
-      <td className="px-4 py-3 text-right font-mono tabular-nums">{compactUsd(token.exposure.exposureUsd)}</td>
+      <td className="px-4 py-3 text-right font-mono tabular-nums">{compactUsd(token.exposureUsd)}</td>
       <td
         className={cn(
           "px-4 py-3 text-right font-mono tabular-nums",
-          token.ratio !== null && token.ratio >= 1 && "text-destructive-foreground",
+          token.exposureRatio !== null && token.exposureRatio > 1 && "text-destructive-foreground",
         )}
       >
-        {fmtRatio(token.ratio)}
+        {capped ? (
+          <span {...tip(`ratio is capped at ${RATIO_CAP} by the engine`)} className="cursor-help">
+            ≥{RATIO_CAP}
+          </span>
+        ) : (
+          fmtRatio(token.exposureRatio)
+        )}
       </td>
       <td className="px-4 py-3 text-right font-mono tabular-nums">
-        {costTip ? (
-          <span {...tip(costTip)} className="cursor-help underline decoration-dotted underline-offset-4">
-            {compactUsd(token.attackCost?.costUsd)}
+        {token.liquidationAttackCostUsd !== null ? (
+          <span
+            {...tip(`${TIP_DUMP}. for ${token.symbol} that gap is ${percent(token.requiredDrop)}.`)}
+            className="cursor-help underline decoration-dotted underline-offset-4"
+          >
+            {compactUsd(token.liquidationAttackCostUsd)}
           </span>
         ) : (
           compactUsd(null)
         )}
       </td>
+      <td className="px-4 py-3 text-right font-mono tabular-nums">{compactUsd(token.pumpCostUsd)}</td>
       <td className="px-4 py-3">
-        <RiskPill risk={token.risk} />
+        <RiskPill risk={risk} />
       </td>
     </tr>
   )
@@ -153,11 +196,11 @@ export function TokenTable({
   onSelect,
   big = false,
 }: {
-  tokens: Token[]
+  tokens: TokenScore[]
   sortKey: SortKey
   sortDir: SortDir
   onSort: (key: SortKey) => void
-  onSelect: (token: Token) => void
+  onSelect: (token: TokenScore) => void
   big?: boolean
 }) {
   const { triggerProps, tooltip } = useTooltip()
@@ -168,7 +211,7 @@ export function TokenTable({
   return (
     <>
       <div className="overflow-x-auto border-x border-t border-border">
-        <table className="w-full min-w-[900px] border-collapse text-left">
+        <table className="w-full min-w-[1040px] border-collapse text-left">
           <thead>
             <tr className="border-b border-border bg-card">
               {COLUMNS.map((column) => {
@@ -210,7 +253,7 @@ export function TokenTable({
           </thead>
           <tbody>
             {ranked.map((token) => (
-              <Row key={token.address} token={token} onSelect={onSelect} big={big} tip={triggerProps} />
+              <Row key={token.tokenAddress} token={token} onSelect={onSelect} big={big} tip={triggerProps} />
             ))}
             {unknown.length > 0 ? (
               <tr className="border-b border-border bg-muted/40">
@@ -220,7 +263,7 @@ export function TokenTable({
               </tr>
             ) : null}
             {unknown.map((token) => (
-              <Row key={token.address} token={token} onSelect={onSelect} big={big} tip={triggerProps} />
+              <Row key={token.tokenAddress} token={token} onSelect={onSelect} big={big} tip={triggerProps} />
             ))}
           </tbody>
         </table>

@@ -5,13 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Markdown } from "@/components/dashboard/markdown"
 import { postAsk } from "@/lib/api"
-import { prettySource } from "@/lib/format"
-import type { AskResponse, Token } from "@/lib/types"
+import type { AskResponse, TokenScore } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 
 const PRESETS = [
-  "which markets are over-lent right now?",
+  "which collateral tokens have more lent against them than could be sold into a 10% move?",
   "what is the attack cost on the worst market?",
   "which collateral has no uniswap depth?",
 ]
@@ -20,7 +19,7 @@ const TIMEOUT_MS = 30_000
 const COUNTDOWN_AFTER_MS = 10_000
 const REVEAL_STEP_MS = 120
 
-export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address: string) => void }) {
+export function AskBox({ tokens, onToken }: { tokens: TokenScore[]; onToken: (address: string) => void }) {
   const [question, setQuestion] = useState("")
   const [pending, setPending] = useState(false)
   const [response, setResponse] = useState<AskResponse | null>(null)
@@ -74,6 +73,18 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
 
   const remaining = Math.max(0, Math.ceil((TIMEOUT_MS - elapsed) / 1000))
   const showCountdown = pending && elapsed >= COUNTDOWN_AFTER_MS
+  // mode tells us the mcp connector was attached; toolCalls tells us it was
+  // actually queried. Claiming "via mcp" with zero tool calls would overstate
+  // what happened, so the snapshot case gets its own honest label.
+  const connectorUp = response ? response.mode === "connector" || response.mode === "client" : false
+  const viaMcp = connectorUp && (response?.toolCalls.length ?? 0) > 0
+  const pillLabel = !response
+    ? ""
+    : viaMcp
+      ? "answered via the graph subgraph mcp"
+      : connectorUp
+        ? "answered from the live snapshot"
+        : "answered from cached table"
 
   return (
     <section className="border-x border-t border-border px-4 py-5">
@@ -144,16 +155,19 @@ export function AskBox({ tokens, onToken }: { tokens: Token[]; onToken: (address
 
           {revealed >= response.toolCalls.length ? (
             <>
-              <span
-                className={cn(
-                  "mt-3 inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-xs",
-                  response.usedMcp
-                    ? "border-success/40 text-success-foreground"
-                    : "border-border text-muted-foreground",
-                )}
-              >
-                {response.usedMcp ? "answered via the graph subgraph mcp" : "answered from cached table"}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-xs",
+                    viaMcp ? "border-success/40 text-success-foreground" : "border-border text-muted-foreground",
+                  )}
+                >
+                  {pillLabel}
+                </span>
+                {response.error ? (
+                  <span className="font-mono text-xs text-muted-foreground">{response.error}</span>
+                ) : null}
+              </div>
               <div className="mt-3 max-w-3xl">
                 <Markdown source={response.answer} tokens={tokens} onToken={onToken} />
               </div>

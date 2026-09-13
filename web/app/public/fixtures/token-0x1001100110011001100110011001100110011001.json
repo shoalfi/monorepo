@@ -1,62 +1,64 @@
 {
-  "address": "0x1001100110011001100110011001100110011001",
+  "tokenAddress": "0x1001100110011001100110011001100110011001",
   "symbol": "TESTA",
-  "name": "Test Alpha",
+  "decimals": 18,
   "priceUsd": 3210.5,
-  "depth": {
-    "state": "deep",
-    "sellableUsd10pct": 412000000,
-    "venue": "uniswap-v3",
-    "poolCount": 6
-  },
+  "depthStatus": "deep",
+  "sellableDepthUsd": 412000000,
   "safeCapUsd": 123600000,
-  "exposure": {
-    "depositsUsd": 900000000,
-    "maxLtv": 0.805,
-    "exposureUsd": 724500000
-  },
-  "ratio": 1.76,
-  "attackCost": {
-    "direction": "down",
-    "movePct": 0.17,
-    "costUsd": 88000000
-  },
-  "risk": "red",
-  "markets": [
-    {
-      "protocol": "aave-v3",
-      "marketId": "0x9001900190019001900190019001900190019001",
-      "ltv": 0.805,
-      "liquidationThreshold": 0.83,
-      "depositsUsd": 900000000,
-      "borrowsUsd": 400000000
-    }
+  "exposureUsd": 724500000,
+  "exposureRatio": 5.86,
+  "liquidationAttackCostUsd": 88000000,
+  "pumpCostUsd": 190000000,
+  "requiredDrop": 0.17,
+  "protocols": [
+    "compound-v3"
   ],
+  "truncated": false,
   "pools": [
     {
-      "venue": "uniswap-v3",
-      "pool": "0xa001a001a001a001a001a001a001a001a001a001",
-      "pair": "TESTA/TESTB",
+      "poolId": "0xa001a001a001a001a001a001a001a001a001a001",
       "feeTier": 500,
+      "pair": "TESTA/TESTUSD",
+      "direction": "down",
+      "depthUsd": 180000000,
       "tvlUsd": 210000000,
-      "sellableUsd10pct": 180000000
+      "truncated": false
     },
     {
-      "venue": "uniswap-v3",
-      "pool": "0xa002a002a002a002a002a002a002a002a002a002",
-      "pair": "TESTA/TESTC",
+      "poolId": "0xa002a002a002a002a002a002a002a002a002a002",
       "feeTier": 3000,
+      "pair": "TESTA/TESTB",
+      "direction": "down",
+      "depthUsd": 142000000,
       "tvlUsd": 96000000,
-      "sellableUsd10pct": 142000000
+      "truncated": false
     },
     {
-      "venue": "uniswap-v3",
-      "pool": "0xa003a003a003a003a003a003a003a003a003a003",
-      "pair": "TESTA/TESTD",
+      "poolId": "0xa003a003a003a003a003a003a003a003a003a003",
       "feeTier": 10000,
+      "pair": "TESTA/TESTC",
+      "direction": "down",
+      "depthUsd": 90000000,
       "tvlUsd": 31400000,
-      "sellableUsd10pct": 90000000
+      "truncated": false
     }
   ],
-  "summary": "fixture summary: $724.5m is lent against TESTA while only $412m could be sold into a 10% move, so the market is over-lent by roughly 1.8x."
+  "markets": [
+    {
+      "protocol": "compound-v3",
+      "marketId": "0x9001900190019001900190019001900190019001",
+      "marketName": "Compound V3 TESTUSD - TESTA",
+      "token": {
+        "address": "0x1001100110011001100110011001100110011001",
+        "symbol": "TESTA",
+        "decimals": 18
+      },
+      "depositUsd": 900000000,
+      "maxLtv": 0.805,
+      "liquidationThreshold": 0.83
+    }
+  ],
+  "error": null,
+  "computedAt": "2026-09-13T09:41:00.000Z"
 }

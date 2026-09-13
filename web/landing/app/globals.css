@@ -279,3 +279,17 @@
     user-select: none;
   }
 }
+
+/* Selection: inverted, so it reads the same on the dark page, inside tables and
+   over the line-art illustrations. Swap --foreground for an accent token to
+   re-tint it in one place. */
+@layer base {
+  ::selection {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+  ::-moz-selection {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+}

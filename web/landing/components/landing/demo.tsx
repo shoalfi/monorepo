@@ -1,6 +1,5 @@
 import { Reveal } from "@/components/landing/reveal"
-import { Band, Button, Headline, Kicker, Placeholder } from "@/components/landing/ui"
-import { redTeamUrl } from "@/lib/site"
+import { Band, Headline, Kicker, Placeholder } from "@/components/landing/ui"
 
 function isEmbed(url: string) {
   return /youtube\.com|youtu\.be|vimeo\.com/.test(url)
@@ -20,17 +19,11 @@ export function Demo({ src }: { src?: string }) {
       <div className="border-b border-border px-4 py-12 md:px-10 md:py-16">
         <Reveal>
           <Kicker>demo</Kicker>
-          <Headline className="mt-3 text-[clamp(1.75rem,3.5vw,2.75rem)]">same attack. two markets. one survives.</Headline>
+          <Headline className="mt-3 text-[clamp(1.75rem,3.5vw,2.75rem)]">see what your collateral is actually worth.</Headline>
           <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-            two identical compound-fork markets, one pump. the plain one gets drained. the one running shoalfi reverts
-            with{" "}
-            <code className="bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground">BorrowCapExceeded</code>.
+            a live scanner over compound v3 and morpho blue collateral, ranked by how much is lent vs how much could
+            be sold on uniswap v3. plus the numbers from the august incidents.
           </p>
-          <div className="mt-8">
-            <Button href={redTeamUrl} className="h-11 px-5">
-              try the red-team page
-            </Button>
-          </div>
         </Reveal>
       </div>
       <div className="aspect-video">

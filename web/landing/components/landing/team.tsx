@@ -4,9 +4,9 @@ import { Reveal } from "@/components/landing/reveal"
 import { Band, Headline, Kicker } from "@/components/landing/ui"
 
 const team = [
-  { handle: "vwakesahu", role: "the sounding line", avatar: "/team/vwakesahu.png" },
-  { handle: "shubhamtwtt", role: "the cap steward", avatar: "/team/shubhamtwtt.png" },
-  { handle: "0xweshall", role: "the red team", avatar: "/team/0xweshall.png" },
+  { handle: "vwakesahu", role: "backend + engine", avatar: "/team/vwakesahu.png" },
+  { handle: "shubhamtwtt", role: "contracts", avatar: "/team/shubhamtwtt.png" },
+  { handle: "0xweshall", role: "frontend", avatar: "/team/0xweshall.png" },
 ]
 
 export function Team() {
